@@ -1,40 +1,27 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View, TouchableOpacity, Image, ImageBackground, Linking } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, Image, ImageBackground, Linking, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import * as WebBrowser from 'expo-web-browser';
+import * as WebBrowser from "expo-web-browser";
 
-// Spotify Config
+// 👇 Spotify Configuration
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
 const SCOPES = "user-read-email user-read-private";
-const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect";
+const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect"; // Your Expo deep link redirect
+const BACKEND_URL = "http://192.168.18.49:3000"; // Your local Express server
 
-// Construct the Spotify authorization URL
+// 🔗 Build Spotify Auth URL
 const buildAuthUrl = () => {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    response_type: 'token', // Try token first
+    response_type: "code", // use 'code' to exchange via backend
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
     state: Math.random().toString(36).substring(7),
-    show_dialog: 'true'
+    show_dialog: "true",
   });
-  
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
-};
 
-// Alternative: Try with code response type
-const buildAuthUrlWithCode = () => {
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    response_type: 'code',
-    redirect_uri: REDIRECT_URI,
-    scope: SCOPES,
-    state: Math.random().toString(36).substring(7),
-    show_dialog: 'true'
-  });
-  
   return `https://accounts.spotify.com/authorize?${params.toString()}`;
 };
 
@@ -43,96 +30,106 @@ export default function Index() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Handle deep links
+  // ⚡ Handle deep links from Spotify
   useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
+    const handleDeepLink = async (event: { url: string }) => {
       console.log("Deep link received:", event.url);
-      
-      // Parse the URL to extract access token or code
+
       const url = new URL(event.url);
-      const hashParams = new URLSearchParams(url.hash.substring(1));
       const queryParams = new URLSearchParams(url.search);
-      
-      const accessToken = hashParams.get('access_token');
-      const code = queryParams.get('code');
-      const error = hashParams.get('error') || queryParams.get('error');
-      
-      if (accessToken) {
-        console.log("Access token received:", accessToken);
-        setToken(accessToken);
-        setLoading(false);
-        router.replace('/Home');
-      } else if (code) {
-        console.log("Authorization code received:", code);
-        // You would need to exchange this code for a token via a backend
-        setLoading(false);
-        alert("Authorization code received. Backend token exchange needed.");
-      } else if (error) {
+
+      const code = queryParams.get("code");
+      const error = queryParams.get("error");
+
+      if (error) {
         console.error("Auth error:", error);
         setLoading(false);
-        alert(`Authentication failed: ${error}`);
+        Alert.alert("Authentication failed", error);
+        return;
+      }
+
+      if (code) {
+        console.log("Authorization code received:", code);
+        await exchangeCodeForToken(code);
       }
     };
 
-    // Add event listener for deep links
-    const subscription = Linking.addEventListener('url', handleDeepLink);
-    
-    // Check if app was opened with a deep link
+    // Event listener for deep links
+    const subscription = Linking.addEventListener("url", handleDeepLink);
+
+    // Check if app opened from deep link
     Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
+      if (url) handleDeepLink({ url });
     });
 
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, []);
 
+  // 🔁 Exchange authorization code for access token via backend
+  const exchangeCodeForToken = async (code: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${BACKEND_URL}/auth/spotify/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await response.json();
+      console.log("Backend response:", data);
+
+      if (data.access_token) {
+        console.log("Access token received:", data.access_token);
+        setToken(data.access_token);
+        router.replace("/Home");
+      } else {
+        console.error("Token exchange failed:", data);
+        Alert.alert("Failed to exchange token", JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error("Error exchanging code for token:", err);
+      Alert.alert("Error", "Token exchange failed. Check your backend.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🟢 Start Spotify login flow
   const handleLogin = async () => {
     try {
       setLoading(true);
       console.log("Starting Spotify authentication...");
-      
-      const authUrl = buildAuthUrl(); // Try with token first
-      
-      // Open in browser
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
-        REDIRECT_URI
-      );
-      
+
+      const authUrl = buildAuthUrl();
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
+
       console.log("WebBrowser result:", result);
-      
-      if (result.type === 'cancel') {
-        setLoading(false);
+
+      if (result.type === "cancel") {
         console.log("User cancelled authentication");
+        setLoading(false);
       }
     } catch (error) {
       console.error("Authentication error:", error);
+      Alert.alert("Authentication failed", "Please try again.");
       setLoading(false);
-      alert("Authentication failed. Please try again.");
     }
   };
 
   return (
-    <ImageBackground
-      source={require("../assets/background.jpg")}
-      style={styles.background}
-      blurRadius={6}
-    >
+    <ImageBackground source={require("../assets/background.jpg")} style={styles.background} blurRadius={6}>
       <View style={styles.overlay}>
         <Text style={styles.logoText}>Feelify</Text>
-        
+
         <Text style={styles.statusText}>
-          {token ? "✅ Connected!" : loading ? "🔄 Opening Spotify..." : "Not connected"}
+          {token ? "✅ Connected!" : loading ? "🔄 Connecting to Spotify..." : "Not connected"}
         </Text>
-        
+
         <Text style={styles.subtitle}>Playlists that match your emotions</Text>
 
-        <TouchableOpacity 
-          activeOpacity={0.9} 
-          onPress={handleLogin} 
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleLogin}
           style={styles.buttonWrapper}
           disabled={loading}
         >
@@ -155,6 +152,7 @@ export default function Index() {
   );
 }
 
+// 🎨 Styles
 const styles = StyleSheet.create({
   background: { flex: 1 },
   overlay: {
@@ -186,11 +184,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: "40%",
   },
-  buttonWrapper: { 
-    width: "80%", 
-    borderRadius: 50, 
-    overflow: "hidden" 
-  },
+  buttonWrapper: { width: "80%", borderRadius: 50, overflow: "hidden" },
   loginButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -203,19 +197,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  icon: { 
-    width: 26, 
-    height: 26, 
-    marginRight: 12, 
-    tintColor: "#fff" 
-  },
-  loginText: { 
-    color: "#fff", 
-    fontSize: 17, 
-    fontWeight: "700", 
-    letterSpacing: 0.5 
-  },
+  buttonDisabled: { opacity: 0.6 },
+  icon: { width: 26, height: 26, marginRight: 12, tintColor: "#fff" },
+  loginText: { color: "#fff", fontSize: 17, fontWeight: "700", letterSpacing: 0.5 },
 });
