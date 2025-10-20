@@ -9,7 +9,7 @@ import * as WebBrowser from "expo-web-browser";
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
 const SCOPES = "user-read-email user-read-private";
 const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect"; // Your Expo deep link redirect
-const BACKEND_URL = "http://192.168.18.49:3000"; // Your local Express server
+const BACKEND_URL = "https://feelify-e6vt.onrender.com/"; // Your local Express server
 
 // 🔗 Build Spotify Auth URL
 const buildAuthUrl = () => {
@@ -69,7 +69,7 @@ export default function Index() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/auth/spotify/token`, {
+      const response = await fetch(`${BACKEND_URL}auth/spotify/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
@@ -80,11 +80,13 @@ export default function Index() {
 
       if (data.access_token) {
         console.log("Access token received:", data.access_token);
+        console.log("hi")
         setToken(data.access_token);
         router.replace("/Home");
       } else {
         console.error("Token exchange failed:", data);
         Alert.alert("Failed to exchange token", JSON.stringify(data));
+        console.log(JSON.stringify(data))
       }
     } catch (err) {
       console.error("Error exchanging code for token:", err);
