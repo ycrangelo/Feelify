@@ -1,11 +1,65 @@
 // app/Home.tsx
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from "react-native";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
 
 export default function Home() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Feelify! 🎵</Text>
-      <Text style={styles.subtitle}>You're successfully logged in</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.greeting}>Good Evening, Angelo 🎧</Text>
+        <Ionicons name="settings-outline" size={24} color="#fff" />
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Public Playlists Section */}
+        <Text style={styles.sectionTitle}>Public Playlists</Text>
+        <View style={styles.playlistGrid}>
+          {[
+            { id: 1, title: "Top Hits PH", creator: "Feelify" },
+            { id: 2, title: "Chill Vibes", creator: "Luna" },
+            { id: 3, title: "Daily Mix", creator: "Spotify" },
+            { id: 4, title: "Good Energy", creator: "Alex" },
+            { id: 5, title: "Midnight Drive", creator: "Mia" },
+            { id: 6, title: "Lo-Fi Focus", creator: "Jay" },
+          ].map((item) => (
+            <View key={item.id} style={styles.playlistItem}>
+              <TouchableOpacity>
+                <Image
+                  source={require("../assets/template_music_icon.jpg")}
+                  style={styles.playlistImage}
+                />
+              </TouchableOpacity>
+              <View style={styles.playlistInfo}>
+                <Text style={styles.playlistTitle}>{item.title}</Text>
+                <Text style={styles.playlistCreator}>by {item.creator}</Text>
+              </View>
+              {/* Like Button */}
+              <TouchableOpacity>
+               <Ionicons name="heart-outline" size={20} color="#1DB954" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="home" size={26} color="#1DB954" />
+          <Text style={styles.navTextActive}>Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="add-circle-outline" size={26} color="#fff" />
+          <Text style={styles.navText}>Create</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="person-outline" size={26} color="#fff" />
+          <Text style={styles.navText}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -13,19 +67,86 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: "#000",
+    paddingTop: 50,
   },
-  title: {
-    fontSize: 32,
-    color: '#1DB954',
-    fontWeight: 'bold',
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
     marginBottom: 20,
   },
-  subtitle: {
+  greeting: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  sectionTitle: {
+    color: "#fff",
     fontSize: 18,
-    color: '#fff',
-    opacity: 0.8,
+    fontWeight: "600",
+    marginLeft: 20,
+    marginBottom: 15,
+  },
+  playlistGrid: {
+    flexDirection: "column",
+    gap: 15,
+    paddingHorizontal: 20,
+  },
+  playlistItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#111",
+    padding: 10,
+    borderRadius: 10,
+  },
+  playlistImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  playlistInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  playlistTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  playlistCreator: {
+    color: "#aaa",
+    fontSize: 12,
+  },
+  bottomNav: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#111",
+    paddingVertical: 10,
+    borderTopColor: "#1DB95433",
+    borderTopWidth: 1,
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+  },
+  navItem: {
+    alignItems: "center",
+  },
+  navText: {
+    color: "#aaa",
+    fontSize: 12,
+    marginTop: 3,
+  },
+  navTextActive: {
+    color: "#1DB954",
+    fontSize: 12,
+    marginTop: 3,
+    fontWeight: "bold",
   },
 });
