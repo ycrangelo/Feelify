@@ -2,8 +2,9 @@ import React, { createContext, useState, useContext, ReactNode } from "react";
 
 // 1. Define the shape of user data
 type User = {
-  name: string;
-  email: string;
+  display_name: string;
+  id:string;
+  country:string;
 } | null;
 
 // 2. Define context value type

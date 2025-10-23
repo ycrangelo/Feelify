@@ -4,12 +4,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import * as WebBrowser from "expo-web-browser";
+import { useUser } from "../context/userContext";
 
 // 👇 Spotify Configuration
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
 const SCOPES = "user-read-email user-read-private";
 const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect"; // Your Expo deep link redirect
-const BACKEND_URL = "https://feelify-e6vt.onrender.com/"; // Your local Express server
+const BACKEND_URL = "https://feelify-e6vt.onrender.com/"; // Your backend
 
 // 🔗 Build Spotify Auth URL
 const buildAuthUrl = () => {
@@ -29,7 +30,7 @@ export default function Index() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
+  const { user, setUser } = useUser();
   // ⚡ Handle deep links from Spotify
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
@@ -54,10 +55,8 @@ export default function Index() {
       }
     };
 
-    // Event listener for deep links
     const subscription = Linking.addEventListener("url", handleDeepLink);
 
-    // Check if app opened from deep link
     Linking.getInitialURL().then((url) => {
       if (url) handleDeepLink({ url });
     });
@@ -79,14 +78,31 @@ export default function Index() {
       console.log("Backend response:", data);
 
       if (data.access_token) {
-        console.log("Access token received:", data.access_token);
-        console.log("hi")
+        console.log("✅ Access token received:", data.access_token);
         setToken(data.access_token);
+
+        // 🎧 Fetch Spotify profile info
+        const profileResponse = await fetch("https://api.spotify.com/v1/me", {
+          headers: { Authorization: `Bearer ${data.access_token}` },
+        });
+
+        const profileData = await profileResponse.json();
+
+        // Store in state
+        setUser({
+          display_name: profileData.display_name,
+          id: profileData.id,
+          country: profileData.country,
+        });
+
+        // Optional alert
+        // Alert.alert("Welcome!", `Logged in as ${profileData.display_name || "Spotify User"}`);
+
+        // ✅ Redirect to Home page (you can pass user info here if needed)
         router.replace("/Home");
       } else {
-        console.error("Token exchange failed:", data);
+        console.error("❌ Token exchange failed:", data);
         Alert.alert("Failed to exchange token", JSON.stringify(data));
-        console.log(JSON.stringify(data))
       }
     } catch (err) {
       console.error("Error exchanging code for token:", err);
@@ -95,6 +111,11 @@ export default function Index() {
       setLoading(false);
     }
   };
+    useEffect(() => {
+    if (user) {
+      console.log("🧩 User Context Updated:", user);
+    }
+  }, [user]);
 
   // 🟢 Start Spotify login flow
   const handleLogin = async () => {
@@ -123,9 +144,15 @@ export default function Index() {
       <View style={styles.overlay}>
         <Text style={styles.logoText}>Feelify</Text>
 
-        <Text style={styles.statusText}>
-          {token ? "✅ Connected!" : loading ? "🔄 Connecting to Spotify..." : "Not connected"}
-        </Text>
+        {/* <Text style={styles.statusText}>
+          {token
+            ? user
+              ? `✅ Welcome, ${user.display_name}!`
+              : "✅ Connected!"
+            : loading
+            ? "🔄 Connecting to Spotify..."
+            : "Not connected"}
+        </Text> */}
 
         <Text style={styles.subtitle}>Playlists that match your emotions</Text>
 
