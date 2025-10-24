@@ -1,14 +1,22 @@
 // app/Home.tsx
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from "react-native";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-
+import { Ionicons, Octicons } from "@expo/vector-icons";
+import { useUser } from "../context/userContext";
+import { router } from "expo-router";
 export default function Home() {
+const { user } = useUser();
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>Good Evening, Angelo 🎧</Text>
-        <Ionicons name="settings-outline" size={24} color="#fff" />
+     <View style={styles.header}>
+        <Text style={styles.greeting}>
+          {`${new Date().getHours() < 12
+              ? "Good Morning"
+              : new Date().getHours() < 18
+              ? "Good Afternoon"
+              : "Good Evening"
+            }, ${user ? user.display_name.split(" ")[0] : "Guest"}`}
+        </Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -44,22 +52,27 @@ export default function Home() {
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={26} color="#1DB954" />
-          <Text style={styles.navTextActive}>Home</Text>
-        </TouchableOpacity>
+        <View style={styles.bottomNav}>
+          <TouchableOpacity
+            style={styles.navItem}
+          >
+          <Octicons name="home" size={32} color="#1DB954" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="add-circle-outline" size={26} color="#fff" />
-          <Text style={styles.navText}>Create</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/CreatePlaylist")}
+          >
+            <Ionicons name="add-circle-outline" size={33} color="#fff" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person-outline" size={26} color="#fff" />
-          <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/Profile")}
+          >
+            <Ionicons name="person-circle" size={33} color="#fff" />
+          </TouchableOpacity>
+        </View>
     </View>
   );
 }

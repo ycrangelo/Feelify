@@ -1,45 +1,54 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView } from "react-native";
+import { Ionicons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 export default function CreatePlaylist() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>🪄 Create New Playlist</Text>
-      <Text style={styles.subHeader}>Fill out the details below</Text>
+    <SafeAreaView style={styles.safeContainer}>
+      <View style={styles.container}>
+        <Text style={styles.header}>🪄 Create New Playlist</Text>
+        <Text style={styles.subHeader}>Fill out the details below</Text>
 
-      <TextInput placeholder="Playlist name" placeholderTextColor="#777" style={styles.input} />
-      <TextInput placeholder="Description" placeholderTextColor="#777" style={styles.input} />
+        <TextInput placeholder="Playlist name" placeholderTextColor="#777" style={styles.input} />
+        <TextInput placeholder="Description" placeholderTextColor="#777" style={styles.input} />
 
-      <TouchableOpacity style={styles.createButton}>
-        <Text style={styles.createText}>Create Playlist</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.createButton}>
+          <Text style={styles.createText}>Create Playlist</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* Bottom Navigation */}
+      {/* ✅ Bottom Navigation */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.replace("/Home")} style={styles.navItem}>
-          <Ionicons name="home-outline" size={26} color="#fff" />
-          <Text style={styles.navText}>Home</Text>
+         <Octicons name="home" size={32} color="#1DB954" />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace("/CreatePlaylist")} style={styles.navItem}>
-          <Ionicons name="add-circle" size={26} color="#1DB954" />
-          <Text style={[styles.navText, { color: "#1DB954" }]}>Create</Text>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons color="#1DB954"  name="add-circle-outline" size={33} />
+         
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace("/Profile")} style={styles.navItem}>
-          <Ionicons name="person-circle-outline" size={26} color="#fff" />
-          <Text style={styles.navText}>Profile</Text>
+          <Ionicons color="#fff" name="person-circle" size={33}  />
+         
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000", paddingTop: 60, paddingHorizontal: 20 },
+  safeContainer: {
+    flex: 1,
+    backgroundColor: "#000", // ✅ prevent white flash
+  },
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
   header: { color: "#1DB954", fontSize: 26, fontWeight: "bold" },
   subHeader: { color: "#bbb", fontSize: 16, marginBottom: 30 },
   input: {
@@ -57,16 +66,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   createText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+
   navbar: {
     flexDirection: "row",
     justifyContent: "space-around",
+    alignItems: "center",
     backgroundColor: "#111",
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: "#222",
+    width: "100%",
     position: "absolute",
     bottom: 0,
-    width: "100%",
+    left: 0,  // ✅ ensures full stretch
+    right: 0, // ✅ ensures full stretch
   },
   navItem: { alignItems: "center" },
   navText: { color: "#fff", fontSize: 12, marginTop: 2 },

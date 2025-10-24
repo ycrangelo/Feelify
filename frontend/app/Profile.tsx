@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "../context/userContext";
 
+import { Octicons } from "@expo/vector-icons";
 export default function Profile() {
   const { user } = useUser();
   const router = useRouter();
@@ -23,18 +24,18 @@ export default function Profile() {
       {/* Bottom Navigation */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.replace("/Home")} style={styles.navItem}>
-          <Ionicons name="home-outline" size={26} color="#fff" />
-          <Text style={styles.navText}>Home</Text>
+          <Octicons name="home" size={32} color="#1DB954" />
+          
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace("/CreatePlaylist")} style={styles.navItem}>
-          <Ionicons name="add-circle-outline" size={26} color="#fff" />
-          <Text style={styles.navText}>Create</Text>
+          <Ionicons name="add-circle-outline" size={33} color="#fff" />
+        
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace("/Profile")} style={styles.navItem}>
-          <Ionicons name="person-circle" size={26} color="#1DB954" />
-          <Text style={[styles.navText, { color: "#1DB954" }]}>Profile</Text>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="person-circle" size={33} color="#1DB954" />
+        
         </TouchableOpacity>
       </View>
     </View>
