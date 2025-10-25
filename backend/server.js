@@ -33,12 +33,22 @@ app.post("/detect-emotion", async (req, res) => {
       return res.status(400).json({ error: "Image URL is required." });
     }
 
+    // Ensure the URL is a direct image link (must end in .jpg, .jpeg, .png)
+    if (!/\.(jpg|jpeg|png)$/i.test(imageUrl)) {
+      return res.status(400).json({ 
+        error: "Invalid image URL. Must be a direct image (e.g., ends with .jpg or .png)." 
+      });
+    }
+
     const model = await getClassifier();
     const results = await model(imageUrl, { topk: 3 }); // Get top 3 emotions
     res.json(results);
   } catch (err) {
     console.error("❌ Emotion detection failed:", err);
-    res.status(500).json({ error: "Emotion detection failed", details: err.message });
+    res.status(500).json({ 
+      error: "Emotion detection failed", 
+      details: err.message 
+    });
   }
 });
 
@@ -83,6 +93,16 @@ app.post("/auth/spotify/token", async (req, res) => {
 app.get("/", (req, res) => {
   res.send("🎧 Feelify Backend is running with Spotify + Emotion Detection!");
 });
+
+// 🕒 Keep model warm for Render (avoid cold start)
+setInterval(async () => {
+  try {
+    await getClassifier();
+    console.log("🔥 Model kept warm");
+  } catch (e) {
+    console.error("⚠️ Warm-up failed:", e.message);
+  }
+}, 10 * 60 * 1000); // every 10 minutes
 
 // 🚀 Start Server
 const PORT = process.env.PORT || 3000;
