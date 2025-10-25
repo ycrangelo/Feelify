@@ -15,11 +15,14 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // 🧠 Lazy-load the emotion detection model
 let classifier;
+let modelLoaded = false;
+
 async function getClassifier() {
   if (!classifier) {
-    console.log("🔄 Loading emotion detection model...");
+    console.log("🕒 Loading emotion detection model (this may take 1–2 minutes)...");
     classifier = await pipeline("image-classification", "Xenova/facial_emotions_image_detection");
-    console.log("✅ Emotion model loaded successfully");
+    modelLoaded = true;
+    console.log("✅ Emotion model loaded successfully!");
   }
   return classifier;
 }
@@ -33,21 +36,24 @@ app.post("/detect-emotion", async (req, res) => {
       return res.status(400).json({ error: "Image URL is required." });
     }
 
-    // Ensure the URL is a direct image link (must end in .jpg, .jpeg, .png)
+    // Validate image URL
     if (!/\.(jpg|jpeg|png)$/i.test(imageUrl)) {
-      return res.status(400).json({ 
-        error: "Invalid image URL. Must be a direct image (e.g., ends with .jpg or .png)." 
+      return res.status(400).json({
+        error: "Invalid image URL. Must be a direct image (e.g., ends with .jpg or .png).",
       });
     }
 
+    // Load model lazily
     const model = await getClassifier();
-    const results = await model(imageUrl, { topk: 3 }); // Get top 3 emotions
+
+    // Run emotion detection
+    const results = await model(imageUrl, { topk: 3 });
     res.json(results);
   } catch (err) {
     console.error("❌ Emotion detection failed:", err);
-    res.status(500).json({ 
-      error: "Emotion detection failed", 
-      details: err.message 
+    res.status(500).json({
+      error: "Emotion detection failed",
+      details: err.message,
     });
   }
 });
@@ -60,12 +66,13 @@ app.post("/auth/spotify/token", async (req, res) => {
     return res.status(400).json({ error: "Authorization code is required." });
   }
 
-  const params = new URLSearchParams();
-  params.append("grant_type", "authorization_code");
-  params.append("code", code);
-  params.append("redirect_uri", process.env.SPOTIFY_REDIRECT_URI);
-  params.append("client_id", process.env.SPOTIFY_CLIENT_ID);
-  params.append("client_secret", process.env.SPOTIFY_CLIENT_SECRET);
+  const params = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
+    client_id: process.env.SPOTIFY_CLIENT_ID,
+    client_secret: process.env.SPOTIFY_CLIENT_SECRET,
+  });
 
   try {
     const response = await fetch("https://accounts.spotify.com/api/token", {
@@ -89,12 +96,16 @@ app.post("/auth/spotify/token", async (req, res) => {
   }
 });
 
-// 🧪 Test route
-app.get("/", (req, res) => {
-  res.send("🎧 Feelify Backend is running with Spotify + Emotion Detection!");
+// 🧪 Test Route
+app.get("/", async (req, res) => {
+  if (!modelLoaded) {
+    res.send("🎧 Feelify Backend is starting up... Model is loading ⏳");
+  } else {
+    res.send("🎧 Feelify Backend is running with Spotify + Emotion Detection!");
+  }
 });
 
-// 🕒 Keep model warm for Render (avoid cold start)
+// 🔥 Keep model warm every 15 minutes (Render cold start prevention)
 setInterval(async () => {
   try {
     await getClassifier();
@@ -102,8 +113,19 @@ setInterval(async () => {
   } catch (e) {
     console.error("⚠️ Warm-up failed:", e.message);
   }
-}, 10 * 60 * 1000); // every 10 minutes
+}, 15 * 60 * 1000); // every 15 minutes
 
-// 🚀 Start Server
+// 🚀 Start Server with longer startup timeout
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log("🕒 Initial model loading in background...");
+  // Preload after server start to avoid Render timeout
+  setTimeout(async () => {
+    try {
+      await getClassifier();
+    } catch (err) {
+      console.error("⚠️ Model preload failed:", err.message);
+    }
+  }, 15000); // wait 15s before loading model
+});
