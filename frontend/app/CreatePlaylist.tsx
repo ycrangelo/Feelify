@@ -21,8 +21,8 @@ export default function CreatePlaylist() {
 
       {/* ✅ Bottom Navigation */}
       <View style={styles.navbar}>
-        <TouchableOpacity onPress={() => router.replace("/Home")} style={styles.navItem}>
-         <Octicons name="home" size={32} color="#1DB954" />
+        <TouchableOpacity onPress={() => router.push("/Home")} style={styles.navItem}>
+         <Octicons name="home"  color="#fff" size={32} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem}>
@@ -30,7 +30,7 @@ export default function CreatePlaylist() {
          
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace("/Profile")} style={styles.navItem}>
+        <TouchableOpacity onPress={() => router.push("/Profile")} style={styles.navItem}>
           <Ionicons color="#fff" name="person-circle" size={33}  />
          
         </TouchableOpacity>

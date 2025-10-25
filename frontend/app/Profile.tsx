@@ -23,12 +23,12 @@ export default function Profile() {
 
       {/* Bottom Navigation */}
       <View style={styles.navbar}>
-        <TouchableOpacity onPress={() => router.replace("/Home")} style={styles.navItem}>
-          <Octicons name="home" size={32} color="#1DB954" />
+        <TouchableOpacity onPress={() => router.push("/Home")} style={styles.navItem}>
+          <Octicons name="home" size={32} color="#fff" />
           
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace("/CreatePlaylist")} style={styles.navItem}>
+        <TouchableOpacity onPress={() => router.push("/CreatePlaylist")} style={styles.navItem}>
           <Ionicons name="add-circle-outline" size={33} color="#fff" />
         
         </TouchableOpacity>
