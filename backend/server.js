@@ -2,17 +2,47 @@ import express from "express";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import cors from "cors";
+import bodyParser from "body-parser";
+import { pipeline } from "@xenova/transformers";
 
 dotenv.config();
 const app = express();
 
+// 🧩 Middleware
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get("/", (req, res) => {
-  res.send("🎧 Feelify Spotify Backend is running!");
+// 🧠 Lazy-load the emotion detection model
+let classifier;
+async function getClassifier() {
+  if (!classifier) {
+    console.log("🔄 Loading emotion detection model...");
+    classifier = await pipeline("image-classification", "Xenova/facial_emotions_image_detection");
+    console.log("✅ Emotion model loaded successfully");
+  }
+  return classifier;
+}
+
+// 🧠 Emotion Detection Endpoint
+app.post("/detect-emotion", async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: "Image URL is required." });
+    }
+
+    const model = await getClassifier();
+    const results = await model(imageUrl, { topk: 3 }); // Get top 3 emotions
+    res.json(results);
+  } catch (err) {
+    console.error("❌ Emotion detection failed:", err);
+    res.status(500).json({ error: "Emotion detection failed", details: err.message });
+  }
 });
 
+// 🎧 Spotify Token Exchange
 app.post("/auth/spotify/token", async (req, res) => {
   const { code } = req.body;
 
@@ -41,13 +71,19 @@ app.post("/auth/spotify/token", async (req, res) => {
       return res.status(400).json({ error: "Spotify token exchange failed", details: data });
     }
 
-    console.log("✅ Token exchange successful");
+    console.log("✅ Spotify token exchange successful");
     res.json(data);
   } catch (error) {
-    console.error("❌ Token exchange error:", error);
+    console.error("❌ Spotify token exchange error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
+// 🧪 Test route
+app.get("/", (req, res) => {
+  res.send("🎧 Feelify Backend is running with Spotify + Emotion Detection!");
+});
+
+// 🚀 Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
