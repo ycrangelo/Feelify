@@ -13,16 +13,16 @@ app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// 🧠 Lazy-load the emotion detection model
+// 🧠 Lazy-load the ONNX emotion detection model
 let classifier;
 let modelLoaded = false;
 
 async function getClassifier() {
   if (!classifier) {
-    console.log("🕒 Loading emotion detection model (this may take 1–2 minutes)...");
+    console.log("🕒 Loading lightweight ONNX emotion detection model...");
     classifier = await pipeline("image-classification", "Xenova/facial_emotions_image_detection");
     modelLoaded = true;
-    console.log("✅ Emotion model loaded successfully!");
+    console.log("✅ Emotion model loaded successfully (ONNX)");
   }
   return classifier;
 }
@@ -36,18 +36,15 @@ app.post("/detect-emotion", async (req, res) => {
       return res.status(400).json({ error: "Image URL is required." });
     }
 
-    // Validate image URL
+    // ✅ Validate image URL (must be direct)
     if (!/\.(jpg|jpeg|png)$/i.test(imageUrl)) {
       return res.status(400).json({
         error: "Invalid image URL. Must be a direct image (e.g., ends with .jpg or .png).",
       });
     }
 
-    // Load model lazily
     const model = await getClassifier();
-
-    // Run emotion detection
-    const results = await model(imageUrl, { topk: 3 });
+    const results = await model(imageUrl, { topk: 3 }); // top 3 emotions
     res.json(results);
   } catch (err) {
     console.error("❌ Emotion detection failed:", err);
@@ -101,11 +98,11 @@ app.get("/", async (req, res) => {
   if (!modelLoaded) {
     res.send("🎧 Feelify Backend is starting up... Model is loading ⏳");
   } else {
-    res.send("🎧 Feelify Backend is running with Spotify + Emotion Detection!");
+    res.send("🎧 Feelify Backend is running with Spotify + ONNX Emotion Detection!");
   }
 });
 
-// 🔥 Keep model warm every 15 minutes (Render cold start prevention)
+// 🔥 Keep model warm every 15 minutes (avoid Render cold start)
 setInterval(async () => {
   try {
     await getClassifier();
@@ -113,19 +110,20 @@ setInterval(async () => {
   } catch (e) {
     console.error("⚠️ Warm-up failed:", e.message);
   }
-}, 15 * 60 * 1000); // every 15 minutes
+}, 15 * 60 * 1000);
 
-// 🚀 Start Server with longer startup timeout
+// 🚀 Start Server with delayed preload (Render startup-safe)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log("🕒 Initial model loading in background...");
-  // Preload after server start to avoid Render timeout
+  console.log("🕒 Delaying model load to avoid Render timeout...");
+
+  // Preload model in background after startup
   setTimeout(async () => {
     try {
       await getClassifier();
     } catch (err) {
       console.error("⚠️ Model preload failed:", err.message);
     }
-  }, 15000); // wait 15s before loading model
+  }, 15000); // wait 15s before preloading
 });
