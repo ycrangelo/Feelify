@@ -1,6 +1,9 @@
 # Feelify
 ### Feelify is a mobile app that generates a personalized Spotify playlist based on your emotion powered by Google Gemini AI. Whether you’re happy, sad, calm, or energetic, Feelify curates the perfect music for your mood. with the power of music helping you express and embrace your feelings through curated playlists.
 
+#  STARTING THE BACKEND
+### for you to use the app, you need first to start the server. just click this https://feelify-e6vt.onrender.com/ to your browser and wait for "🎧 Feelify Spotify Backend is running!" to appear. enjoy!
+
 # Features
 
 * Emotion detection with Gemini AI – Analyzes your text or mood input using Google’s Gemini API.
