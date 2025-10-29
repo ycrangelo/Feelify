@@ -23,3 +23,6 @@
 * AI Model: Google Gemini API
 
 * API Integration: Spotify Web API
+
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/83cd6417-e6f7-408b-8d1e-020c6add6588" />
