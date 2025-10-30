@@ -1,0 +1,33 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Album {
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  dominantEmotion String
+  picUrl          String
+  userId          String
+  createdBy       String
+  albumId         String
+  likes           Int @default(0)
+  dateCreated     DateTime @default(now())
+
+}
+model History{
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String
+  verb            String
+  dateCreated     DateTime @default(now())
+}
