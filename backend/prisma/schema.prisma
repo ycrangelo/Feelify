@@ -17,6 +17,7 @@ datasource db {
 model Album {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   dominantEmotion String
+  albumName       String
   picUrl          String
   userId          String
   createdBy       String
@@ -28,6 +29,7 @@ model Album {
 model History {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   userId      String
+  createdBy   String
   verb        String
   dateCreated DateTime @default(now())
 }
