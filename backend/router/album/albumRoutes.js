@@ -1,5 +1,8 @@
 import express from "express";
 import { post } from "../../controller/album/post/post.js";
+import { get,getBy } from "../../controller/album/get/get.js";
+import { postLike } from "../../controller/album/likes/post/post.js";
+
 
 console.log("albumRoutes: express import ok");
 const router = express.Router()
@@ -12,5 +15,8 @@ router.get("/_debug", (req, res) => {
 });
 
 router.post("/post", post)
+router.get("/get",get)
+router.get("/get/:userId",getBy)
+router.post("/post/like",postLike)
 
 export default router;
