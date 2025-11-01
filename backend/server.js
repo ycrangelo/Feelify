@@ -4,6 +4,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import fetch from "node-fetch";
 import albumRoutes from "./router/album/albumRoutes.js"
+import spotifyRoute from "./router/spoitfy/spotifyRoute.js"
 
 dotenv.config();
 const app = express();
@@ -20,35 +21,35 @@ app.use((req, res, next) => {
 });
 
 // 🎧 Spotify Token Exchange
-app.post("/auth/spotify/token", async (req, res) => {
-  const { code } = req.body;
-  if (!code) return res.status(400).json({ error: "Authorization code is required." });
+// app.post("/auth/spotify/token", async (req, res) => {
+//   const { code } = req.body;
+//   if (!code) return res.status(400).json({ error: "Authorization code is required." });
 
-  const params = new URLSearchParams({
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
-    client_id: process.env.SPOTIFY_CLIENT_ID,
-    client_secret: process.env.SPOTIFY_CLIENT_SECRET,
-  });
+//   const params = new URLSearchParams({
+//     grant_type: "authorization_code",
+//     code,
+//     redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
+//     client_id: process.env.SPOTIFY_CLIENT_ID,
+//     client_secret: process.env.SPOTIFY_CLIENT_SECRET,
+//   });
 
-  try {
-    const response = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params,
-    });
+//   try {
+//     const response = await fetch("https://accounts.spotify.com/api/token", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+//       body: params,
+//     });
 
-    const data = await response.json();
-    if (data.error) return res.status(400).json({ error: "Spotify token exchange failed", details: data });
+//     const data = await response.json();
+//     if (data.error) return res.status(400).json({ error: "Spotify token exchange failed", details: data });
 
-    console.log("✅ Spotify token exchange successful");
-    res.json(data);
-  } catch (err) {
-    console.error("❌ Spotify token exchange error:", err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+//     console.log("✅ Spotify token exchange successful");
+//     res.json(data);
+//   } catch (err) {
+//     console.error("❌ Spotify token exchange error:", err);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
 
 // 🧠 Emotion Analysis Route using Gemini 2.5 Flash
 app.post("/analyze/emotion", async (req, res) => {
@@ -399,6 +400,7 @@ app.get("/", async (req, res) => {
 
 console.log("server: mounting /api/v1/album routes", typeof albumRoutes);
 app.use('/api/v1/album', albumRoutes)
+app.use('/api/v1/auth', spotifyRoute)
 // 🚀 Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
