@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import bodyParser from "body-parser";
 import fetch from "node-fetch";
+import albumRoutes from "./router/album/albumRoutes.js"
 
 dotenv.config();
 const app = express();
@@ -11,6 +12,12 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Debug: log incoming requests
+app.use((req, res, next) => {
+  console.log("REQ", req.method, req.path);
+  next();
+});
 
 // 🎧 Spotify Token Exchange
 app.post("/auth/spotify/token", async (req, res) => {
@@ -384,11 +391,14 @@ app.get("/test-image", async (req, res) => {
   }
 });
 
+
 // 🧪 Test route
 app.get("/", async (req, res) => {
   res.send("🎧 Feelify Backend is running with Spotify + Gemini Emotion Detection!");
 });
 
+console.log("server: mounting /api/v1/album routes", typeof albumRoutes);
+app.use('/api/v1/album', albumRoutes)
 // 🚀 Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
