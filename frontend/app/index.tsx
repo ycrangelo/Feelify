@@ -10,7 +10,7 @@ import { useUser } from "../context/userContext";
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
 const SCOPES = "user-read-email user-read-private";
 const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect"; // Your Expo deep link redirect
-const BACKEND_URL = "https://feelify-e6vt.onrender.com/"; // Your backend
+const BACKEND_URL = "https://feelifybackend.onrender.com/"; // Your backend
 
 // 🔗 Build Spotify Auth URL
 const buildAuthUrl = () => {
@@ -68,7 +68,7 @@ export default function Index() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}auth/spotify/token`, {
+      const response = await fetch(`${BACKEND_URL}api/v1/auth/spotify/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
