@@ -8,20 +8,29 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { PINATA_JWT, GATEWAY_URL, PINATA_API_KEY, PINATA_SECRET_API_KEY } from "@env";
+import {
+  PINATA_JWT,
+  GATEWAY_URL,
+  PINATA_API_KEY,
+  PINATA_SECRET_API_KEY,
+} from "@env";
 
 export default function CreatePlaylist() {
   const router = useRouter();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [usingJWT, setUsingJWT] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [emotionData, setEmotionData] = useState<any>(null);
+  const [songSuggestions, setSongSuggestions] = useState<any[]>([]);
 
-  // 📸 Open Camera
+  // 🎥 Open Camera
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.status !== "granted") {
@@ -36,12 +45,10 @@ export default function CreatePlaylist() {
       quality: 0.8,
     });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // 🖼️ Pick from Gallery
+  // 🖼️ Pick Image from Gallery
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -50,36 +57,18 @@ export default function CreatePlaylist() {
       quality: 0.8,
     });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // 🔍 Check Available Credentials - FIXED VERSION
+  // 🧠 Check available credentials
   const checkCredentials = () => {
-    // Better JWT detection - only check if it exists and has proper JWT format
-    const hasJWT = !!PINATA_JWT && 
-                  PINATA_JWT.length > 50 && // JWT tokens are typically long
-                  PINATA_JWT.startsWith('eyJ'); // JWT usually starts with 'eyJ'
-    
-    // Better API key detection
-    const hasAPIKeys = !!PINATA_API_KEY && !!PINATA_SECRET_API_KEY && 
-                      PINATA_API_KEY.length > 10 && 
-                      PINATA_SECRET_API_KEY.length > 10;
-    
-    console.log("🔐 Available credentials:", { 
-      hasJWT, 
-      hasAPIKeys,
-      jwtLength: PINATA_JWT?.length,
-      jwtStartsWith: PINATA_JWT?.substring(0, 10),
-      apiKeyLength: PINATA_API_KEY?.length,
-      secretLength: PINATA_SECRET_API_KEY?.length
-    });
-    
+    const hasJWT = !!PINATA_JWT && PINATA_JWT.startsWith("eyJ");
+    const hasAPIKeys =
+      !!PINATA_API_KEY && !!PINATA_SECRET_API_KEY && PINATA_API_KEY.length > 10;
     return { hasJWT, hasAPIKeys };
   };
 
-  // 🚀 Upload to Pinata (with automatic fallback)
+  // 🚀 Upload to Pinata + POST to backend
   const uploadToPinata = async () => {
     if (!image) {
       Alert.alert("No Image", "Please select or capture an image first!");
@@ -87,24 +76,9 @@ export default function CreatePlaylist() {
     }
 
     const { hasJWT, hasAPIKeys } = checkCredentials();
-    
-    if (!hasJWT && !hasAPIKeys) {
-      Alert.alert(
-        "Configuration Error", 
-        "No valid Pinata credentials found.\n\nPlease check your .env file configuration.",
-        [
-          {
-            text: "Setup Guide",
-            onPress: showSetupInstructions
-          }
-        ]
-      );
-      return;
-    }
 
     try {
       setLoading(true);
-
       const filename = image.split("/").pop() || "photo.jpg";
       const type = filename.endsWith(".png") ? "image/png" : "image/jpeg";
 
@@ -115,164 +89,70 @@ export default function CreatePlaylist() {
         type,
       } as any);
 
-      let headers = {};
+      let headers: any = {};
       let method = "";
 
-      // Try JWT first if available, otherwise use API keys
       if (hasJWT && usingJWT) {
         headers = { Authorization: `Bearer ${PINATA_JWT}` };
         method = "JWT";
-        console.log("🔐 Using JWT authentication");
-        console.log("JWT Token preview:", PINATA_JWT.substring(0, 50) + "...");
       } else if (hasAPIKeys) {
         headers = {
           pinata_api_key: PINATA_API_KEY,
           pinata_secret_api_key: PINATA_SECRET_API_KEY,
         };
         method = "API Keys";
-        console.log("🔑 Using API Key authentication");
       }
 
-      console.log("📤 Uploading to Pinata with:", method);
-      
       const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
         method: "POST",
-        headers: headers,
+        headers,
         body: formData,
       });
 
       const data = await res.json();
-      console.log("📥 Pinata response status:", res.status);
-      console.log("📥 Pinata response data:", data);
+      console.log("📥 Pinata response:", data);
 
-      if (res.status === 401 || res.status === 403) {
-        // Authentication failed - try fallback method
-        if (method === "JWT" && hasAPIKeys) {
-          console.log("🔄 JWT failed, switching to API Keys...");
-          setUsingJWT(false);
-          
-          // Retry with API keys
-          const retryHeaders = {
-            pinata_api_key: PINATA_API_KEY,
-            pinata_secret_api_key: PINATA_SECRET_API_KEY,
-          };
-          
-          const retryRes = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-            method: "POST",
-            headers: retryHeaders,
-            body: formData,
-          });
-          
-          const retryData = await retryRes.json();
-          console.log("🔄 Retry response:", retryData);
-          
-          if (retryData?.IpfsHash) {
-            const imgUrl = `https://${GATEWAY_URL}/ipfs/${retryData.IpfsHash}`;
-            Alert.alert("✅ Upload Successful", `Image uploaded with API Keys!\n\nIPFS Hash: ${retryData.IpfsHash}`);
-            console.log("✅ Uploaded with API Keys:", imgUrl);
-          } else {
-            throw new Error(retryData.error?.reason || "API Key authentication also failed");
-          }
-        } else {
-          throw new Error(data.error?.reason || "Authentication failed");
-        }
-      } else if (data?.IpfsHash) {
+      if (data?.IpfsHash) {
         const imgUrl = `https://${GATEWAY_URL}/ipfs/${data.IpfsHash}`;
-        Alert.alert(
-          "✅ Upload Successful", 
-          `Image uploaded to IPFS!\n\nMethod: ${method}\nIPFS Hash: ${data.IpfsHash}`
-        );
         console.log(`✅ Uploaded with ${method}:`, imgUrl);
+
+        // ✅ Send uploaded image URL to backend
+        const backendRes = await fetch(
+          "https://feelifybackend.onrender.com/api/v1/model/prompt",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ imageUrl: imgUrl }),
+          }
+        );
+
+        const backendData = await backendRes.json();
+        console.log("🧠 Backend Response:", backendData);
+
+        // ✅ Handle array or object structure
+        let emotion = null;
+        let songs: any[] = [];
+
+        if (Array.isArray(backendData)) {
+          emotion = backendData.find((i) => i.type === "emotion_analysis")?.data || null;
+          songs = backendData.find((i) => i.type === "song_suggestions")?.data || [];
+        } else {
+          emotion = backendData.emotion_analysis?.data || null;
+          songs = backendData.song_suggestions?.data || [];
+        }
+
+        setEmotionData(emotion);
+        setSongSuggestions(songs);
+        setModalVisible(true);
       } else {
-        throw new Error(data.error?.reason || "No IPFS hash returned");
+        console.error("❌ Upload failed:", data);
+        Alert.alert("Upload failed", "No IPFS hash returned.");
       }
     } catch (error: any) {
       console.error("❌ Upload failed:", error);
-      
-      if (error.message.includes("revoked") || error.message.includes("invalid") || error.message.includes("malformed")) {
-        Alert.alert(
-          "Authentication Error", 
-          "Your Pinata credentials are invalid or revoked.\n\nPlease generate new credentials in your Pinata dashboard.",
-          [
-            {
-              text: "Open Pinata",
-              onPress: () => {
-                // You can use Linking.openURL if needed
-                console.log("Redirect to Pinata dashboard");
-              }
-            },
-            { text: "OK", style: "cancel" }
-          ]
-        );
-      } else {
-        Alert.alert(
-          "Upload Failed", 
-          error.message || "Please check your internet connection and try again."
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 🔧 Show Configuration Status
-  const showConfigStatus = () => {
-    const { hasJWT, hasAPIKeys } = checkCredentials();
-    
-    let message = "Current Configuration:\n\n";
-    message += `JWT Token: ${hasJWT ? "✅ Configured" : "❌ Missing"}\n`;
-    message += `API Keys: ${hasAPIKeys ? "✅ Configured" : "❌ Missing"}\n\n`;
-    message += `Using: ${hasJWT && usingJWT ? "JWT Token" : "API Keys"}\n\n`;
-    
-    if (hasJWT) {
-      message += `JWT Preview: ${PINATA_JWT.substring(0, 30)}...\n`;
-    }
-    
-    Alert.alert("Configuration Status", message);
-  };
-
-  // 📋 Setup Instructions
-  const showSetupInstructions = () => {
-    Alert.alert(
-      "Pinata Setup Guide",
-      "1. Go to Pinata.cloud and sign in\n2. Navigate to Developers → API Keys\n3. Generate new JWT Token or API Keys\n4. Update your .env file with the new credentials\n5. Restart the app",
-      [
-        { text: "OK", style: "cancel" }
-      ]
-    );
-  };
-
-  // 🧪 Test JWT Token
-  const testJWTToken = async () => {
-    const { hasJWT } = checkCredentials();
-    
-    if (!hasJWT) {
-      Alert.alert("No JWT", "JWT token not detected in configuration.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log("🧪 Testing JWT token...");
-      
-      const response = await fetch('https://api.pinata.cloud/data/testAuthentication', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${PINATA_JWT}`
-        }
-      });
-      
-      const result = await response.json();
-      console.log('JWT Test result:', result);
-      
-      if (response.ok) {
-        Alert.alert('✅ JWT Valid', 'Your JWT token is working correctly!');
-      } else {
-        Alert.alert('❌ JWT Invalid', result.error?.reason || 'JWT authentication failed');
-      }
-    } catch (error) {
-      console.error('JWT test failed:', error);
-      Alert.alert('Test Failed', 'Cannot test JWT token. Check connection.');
+      Alert.alert("Upload failed", error.message || "Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -283,19 +163,6 @@ export default function CreatePlaylist() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.header}>Create New Playlist</Text>
 
-        {/* Configuration Status */}
-        <View style={styles.configSection}>
-          <TouchableOpacity style={styles.configButton} onPress={showConfigStatus}>
-            <Ionicons name="settings-outline" size={20} color="#007AFF" />
-            <Text style={styles.configText}>Check Configuration</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.testButton} onPress={testJWTToken} disabled={loading}>
-            <Text style={styles.testText}>Test JWT</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 🖼️ Image Section */}
         <View style={styles.imageContainer}>
           {image ? (
             <Image source={{ uri: image }} style={styles.imagePreview} />
@@ -307,7 +174,6 @@ export default function CreatePlaylist() {
           )}
         </View>
 
-        {/* 📸 Action Buttons */}
         <View style={styles.fileButtons}>
           <TouchableOpacity style={styles.iconButton} onPress={openCamera}>
             <Ionicons name="camera" size={24} color="#1DB954" />
@@ -320,7 +186,6 @@ export default function CreatePlaylist() {
           </TouchableOpacity>
         </View>
 
-        {/* 🚀 Analyze / Upload Button */}
         <TouchableOpacity
           style={[styles.createButton, loading && { opacity: 0.7 }]}
           onPress={uploadToPinata}
@@ -332,26 +197,65 @@ export default function CreatePlaylist() {
             <Text style={styles.createText}>Analyze Image</Text>
           )}
         </TouchableOpacity>
-
-        {/* 🔧 Setup Instructions */}
-        <TouchableOpacity
-          style={styles.helpButton}
-          onPress={showSetupInstructions}
-        >
-          <Text style={styles.helpText}>Need Help Setting Up Pinata?</Text>
-        </TouchableOpacity>
       </ScrollView>
 
-      {/* ✅ Bottom Navigation */}
+      {/* 🎭 Modal for Emotion & Song Results */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              <Text style={styles.modalTitle}>🎭 Emotion Analysis</Text>
+
+              {emotionData ? (
+                Object.entries(emotionData).map(([key, value]) => (
+                  <Text key={key} style={styles.modalText}>
+                    {key}: {(Number(value) * 100).toFixed(1)}%
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.modalText}>No emotion data found.</Text>
+              )}
+
+              <Text style={[styles.modalTitle, { marginTop: 15 }]}>🎵 Song Suggestions</Text>
+                        {songSuggestions.length > 0 ? (
+            songSuggestions.map((song, i) => {
+              const title = song?.title || song?.name || "Untitled";
+              const artist = song?.artist || song?.singer || "Unknown Artist";
+              return (
+                <Text key={i} style={styles.modalText}>
+                  {i + 1}. {title} — {artist}
+                </Text>
+              );
+            })
+          ) : (
+            <Text style={styles.modalText}>No song suggestions available.</Text>
+          )}
+
+
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🧭 Bottom Navbar */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.push("/Home")} style={styles.navItem}>
           <Octicons name="home" size={30} color="#fff" />
         </TouchableOpacity>
-
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="add-circle" size={36} color="#1DB954" />
         </TouchableOpacity>
-
         <TouchableOpacity onPress={() => router.push("/Profile")} style={styles.navItem}>
           <Ionicons name="person-circle" size={32} color="#fff" />
         </TouchableOpacity>
@@ -363,55 +267,13 @@ export default function CreatePlaylist() {
 // 🎨 Styles
 const styles = StyleSheet.create({
   safeContainer: { flex: 1, backgroundColor: "#000" },
-  scrollContainer: {
-    flexGrow: 1,
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 120,
-  },
+  scrollContainer: { flexGrow: 1, paddingTop: 60, paddingHorizontal: 24, paddingBottom: 120 },
   header: {
     color: "#1DB954",
     fontSize: 28,
     fontWeight: "bold",
     marginBottom: 15,
     textAlign: "center",
-  },
-  configSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  configButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1a1a1a",
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#333",
-    marginRight: 5,
-  },
-  configText: {
-    color: "#007AFF",
-    marginLeft: 8,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  testButton: {
-    flex: 1,
-    backgroundColor: "#5856D6",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 5,
-  },
-  testText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
   },
   imageContainer: {
     backgroundColor: "#111",
@@ -421,25 +283,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#222",
   },
-  placeholderBox: { 
-    height: 200, 
-    justifyContent: "center", 
-    alignItems: "center" 
-  },
-  placeholderText: { 
-    color: "#555", 
-    fontSize: 14, 
-    marginTop: 8 
-  },
-  imagePreview: { 
-    width: "100%", 
-    height: 200 
-  },
-  fileButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 25,
-  },
+  placeholderBox: { height: 200, justifyContent: "center", alignItems: "center" },
+  placeholderText: { color: "#555", fontSize: 14, marginTop: 8 },
+  imagePreview: { width: "100%", height: 200 },
+  fileButtons: { flexDirection: "row", justifyContent: "space-between", marginBottom: 25 },
   iconButton: {
     flex: 1,
     flexDirection: "row",
@@ -452,12 +299,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1DB95433",
   },
-  iconText: { 
-    color: "#fff", 
-    marginLeft: 10, 
-    fontSize: 15, 
-    fontWeight: "600" 
-  },
+  iconText: { color: "#fff", marginLeft: 10, fontSize: 15, fontWeight: "600" },
   createButton: {
     backgroundColor: "#1DB954",
     borderRadius: 12,
@@ -465,25 +307,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 15,
   },
-  createText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 17,
-    textTransform: "uppercase",
-  },
-  helpButton: {
-    backgroundColor: "transparent",
-    borderRadius: 12,
-    paddingVertical: 12,
+  createText: { color: "#fff", fontWeight: "bold", fontSize: 17, textTransform: "uppercase" },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#666",
+    padding: 20,
   },
-  helpText: {
-    color: "#666",
-    fontWeight: "600",
-    fontSize: 14,
+  modalBox: {
+    backgroundColor: "#111",
+    padding: 20,
+    borderRadius: 14,
+    width: "100%",
+    maxWidth: 380,
+    maxHeight: "80%",
   },
+  modalTitle: { color: "#1DB954", fontSize: 20, fontWeight: "bold", marginBottom: 8 },
+  modalText: { color: "#fff", fontSize: 15, marginBottom: 4 },
+  closeButton: {
+    backgroundColor: "#1DB954",
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 15,
+    alignItems: "center",
+  },
+  closeButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+
   navbar: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -496,7 +348,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
   },
-  navItem: { 
-    alignItems: "center" 
-  },
+  navItem: { alignItems: "center" },
 });
