@@ -121,15 +121,13 @@ export async function postAi(req,res){
         console.log("🧠 Emotion Analysis Result:", emotionData);
     
         // 🎵 Step 5: Get song suggestions based on emotions using AI
-        const dominantEmotion = getDominantEmotion(emotionData);
-        const songSuggestions = await getAISongSuggestions(emotionData, dominantEmotion);
+        const songSuggestions = await getAiSongSuggestions(emotionData);
     
         // Step 6: Return both emotion analysis and song suggestions as array
         const responseArray = [
           {
             type: "emotion_analysis",
             data: emotionData,
-            dominant_emotion: dominantEmotion
           },
           {
             type: "song_suggestions", 
@@ -149,157 +147,152 @@ export async function postAi(req,res){
       }
 }
 
-async function getDominantEmotion(emotionData){
-    let maxScore = 0;
-    let dominantEmotion = 'neutral';
-    
-    for (const [emotion, score] of Object.entries(emotionData)) {
-    if (score > maxScore) {
-        maxScore = score;
-        dominantEmotion = emotion;
-    }
-    }
-    
-    return dominantEmotion;
-}
+async function getAiSongSuggestions(emotionData) {
+  try {
+    const emotionDescription = Object.entries(emotionData)
+      .map(([emotion, score]) => `${emotion}: ${score}`)
+      .join(', ');
 
-async function getAiSongSuggestions(emotionData, dominantEmotion){
-      try {
-        const emotionDescription = Object.entries(emotionData)
-          .map(([emotion, score]) => `${emotion}: ${score}`)
-          .join(', ');
-    
-        const songPrompt = `
-          Based on these emotion scores: ${emotionDescription}. 
-          The dominant emotion is: ${dominantEmotion}.
-          
-          Please suggest 7 songs that would match this emotional state. 
-          Return ONLY a JSON array of objects with this exact format:
-          [
+    const songPrompt = `
+      The following are emotion intensity scores detected from a user's face:
+      ${emotionDescription}.
+      
+      Consider ALL emotions together — not just one — and interpret this as a blended emotional state.
+      Generate a playlist that emotionally resonates with this mix, balancing between uplifting and reflective tones as appropriate.
+
+      Suggest 10 songs that are:
+      - Emotionally relevant to the overall feeling described by the scores.
+      - From popular, trending, and emotionally expressive artists worldwide.
+      - You may use (but are not limited to) the following artists as inspiration:
+        • Western Pop / R&B: SZA, Laufey, Billie Eilish, The Weeknd, Taylor Swift, Frank Ocean, Olivia Rodrigo, Joji, Coldplay, Arctic Monkeys, Ed Sheeran, Lana Del Rey, Sam Smith, Harry Styles, Post Malone, Khalid, Adele, Drake, Bruno Mars, Dua Lipa, Halsey, Imagine Dragons, Justin Bieber, Rihanna, Shawn Mendes.
+        • K-Pop: BTS, BLACKPINK, NewJeans, Stray Kids, SEVENTEEN, TWICE, EXO, IU, ENHYPEN, (G)I-DLE, ATEEZ, TXT, LE SSERAFIM.
+        • J-Pop / Anime-inspired: Kenshi Yonezu, Aimer, YOASOBI, LiSA, Official HIGE DANDism, RADWIMPS, King Gnu.
+        • OPM (Filipino Artists): Moira Dela Torre, Ben&Ben, Zack Tabudlo, SB19, December Avenue, Arthur Nery, Juan Karlos, Adie, Yeng Constantino, Sarah Geronimo, IV of Spades, Unique Salonga.
+
+      You are free to include other relevant and popular artists or songs that match the emotional blend, even if not listed above.
+      MUST BE ACCURATE THE SUGGETED SONGS TO THE USERS ${emotionDescription}
+      Return ONLY a JSON array of 10 objects in this exact format:
+      [
+        {
+          "title": "Song Title",
+          "artist": "Artist Name"
+        }
+      ]
+
+      Do not include any explanation, introduction, or text outside the JSON array.
+    `;
+
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
             {
-              "title": "Song Title",
-              "artist": "Artist Name", 
-              "genre": "Music Genre",
-              "reason": "Brief explanation of why this song matches the emotions"
-            }
-          ]
-          
-          No other text, just the JSON array.
-        `;
-    
-        const geminiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${process.env.GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              contents: [
+              parts: [
                 {
-                  parts: [
-                    {
-                      text: songPrompt,
-                    },
-                  ],
+                  text: songPrompt,
                 },
               ],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 500,
-              },
-            }),
-          }
-        );
-    
-        const songResult = await geminiResponse.json();
-        console.log("Song Suggestions Response:", JSON.stringify(songResult, null, 2));
-    
-        if (songResult.error) {
-          throw new Error(songResult.error.message);
-        }
-    
-        const songOutput = songResult?.candidates?.[0]?.content?.parts?.[0]?.text;
-        
-        if (!songOutput) {
-          throw new Error("No song suggestions from AI");
-        }
-    
-        let songSuggestions;
-        try {
-          songSuggestions = JSON.parse(songOutput.trim());
-        } catch (e) {
-          console.warn("⚠️ Song output was not JSON, attempting to extract JSON:", songOutput);
-          const jsonMatch = songOutput.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            songSuggestions = JSON.parse(jsonMatch[0]);
-          } else {
-            throw new Error("Could not parse song suggestions");
-          }
-        }
-    
-        // Ensure we have exactly 7 songs
-        if (songSuggestions.length > 7) {
-          songSuggestions = songSuggestions.slice(0, 7);
-        }
-    
-        return songSuggestions;
-    
-      } catch (error) {
-        console.error("❌ AI song suggestions error:", error);
-        // Return fallback suggestions if AI fails
-        return getFallbackSongSuggestions(dominantEmotion);
+            },
+          ],
+          generationConfig: {
+            temperature: 0.8,
+            maxOutputTokens: 500,
+          },
+        }),
       }
-}
+    );
 
-function getFallbackSongSuggestions(dominantEmotion){
-      const fallbackSuggestions = {
-    happy: [
-      { title: "Happy", artist: "Pharrell Williams", genre: "Pop", reason: "Uplifting and positive vibe" },
-      { title: "Can't Stop the Feeling!", artist: "Justin Timberlake", genre: "Pop", reason: "Energetic and joyful" },
-      { title: "Good Vibrations", artist: "The Beach Boys", genre: "Pop/Rock", reason: "Classic feel-good song" },
-      { title: "Walking on Sunshine", artist: "Katrina & The Waves", genre: "Pop Rock", reason: "Perfect for happy moments" },
-      { title: "Dancing Queen", artist: "ABBA", genre: "Pop/Disco", reason: "Celebratory and fun" },
-      { title: "Uptown Funk", artist: "Mark Ronson ft. Bruno Mars", genre: "Funk/Pop", reason: "Groovy and energetic" },
-      { title: "I Gotta Feeling", artist: "The Black Eyed Peas", genre: "Pop/Dance", reason: "Party anthem for good times" }
-    ],
-    sad: [
-      { title: "Someone Like You", artist: "Adele", genre: "Pop/Soul", reason: "Emotional and cathartic" },
-      { title: "The Sound of Silence", artist: "Simon & Garfunkel", genre: "Folk Rock", reason: "Reflective and melancholic" },
-      { title: "All I Want", artist: "Kodaline", genre: "Indie Rock", reason: "Heartfelt and emotional" },
-      { title: "Fix You", artist: "Coldplay", genre: "Alternative Rock", reason: "Comforting and hopeful" },
-      { title: "Say Something", artist: "A Great Big World", genre: "Pop", reason: "Vulnerable and emotional" },
-      { title: "Skinny Love", artist: "Bon Iver", genre: "Indie Folk", reason: "Raw and intimate" },
-      { title: "Hurt", artist: "Johnny Cash", genre: "Country", reason: "Powerful and emotional" }
-    ],
-    angry: [
-      { title: "Killing In The Name", artist: "Rage Against The Machine", genre: "Rap Metal", reason: "Intense and cathartic" },
-      { title: "Break Stuff", artist: "Limp Bizkit", genre: "Nu Metal", reason: "Aggressive release" },
-      { title: "Given Up", artist: "Linkin Park", genre: "Alternative Metal", reason: "Raw emotional intensity" },
-      { title: "Bulls on Parade", artist: "Rage Against The Machine", genre: "Rap Metal", reason: "Powerful and aggressive" },
-      { title: "Duality", artist: "Slipknot", genre: "Heavy Metal", reason: "High-energy release" },
-      { title: "Last Resort", artist: "Papa Roach", genre: "Nu Metal", reason: "Intense emotional expression" },
-      { title: "Bodies", artist: "Drowning Pool", genre: "Nu Metal", reason: "Powerful and energetic" }
-    ],
-    surprised: [
-      { title: "Somebody That I Used To Know", artist: "Gotye", genre: "Indie Pop", reason: "Unexpected twists" },
-      { title: "Take On Me", artist: "a-ha", genre: "Synth-pop", reason: "Surprising energy shifts" },
-      { title: "Bohemian Rhapsody", artist: "Queen", genre: "Rock", reason: "Unpredictable structure" },
-      { title: "Hey Ya!", artist: "Outkast", genre: "Hip Hop", reason: "Unexpectedly upbeat" },
-      { title: "Seven Nation Army", artist: "The White Stripes", genre: "Rock", reason: "Iconic and surprising" },
-      { title: "Feel It Still", artist: "Portugal. The Man", genre: "Alternative", reason: "Catchy and unexpected" },
-      { title: "Pumped Up Kicks", artist: "Foster The People", genre: "Indie Pop", reason: "Contrasting mood" }
-    ],
-    neutral: [
-      { title: "Weightless", artist: "Marconi Union", genre: "Ambient", reason: "Calming and balanced" },
-      { title: "Bloom", artist: "The Paper Kites", genre: "Indie Folk", reason: "Gentle and peaceful" },
-      { title: "Holocene", artist: "Bon Iver", genre: "Indie Folk", reason: "Reflective and calm" },
-      { title: "To Build a Home", artist: "The Cinematic Orchestra", genre: "Ambient", reason: "Peaceful and introspective" },
-      { title: "First Day of My Life", artist: "Bright Eyes", genre: "Indie Folk", reason: "Simple and heartfelt" },
-      { title: "The Night We Met", artist: "Lord Huron", genre: "Indie Folk", reason: "Calm and reflective" },
-      { title: "Rivers and Roads", artist: "The Head and the Heart", genre: "Indie Folk", reason: "Balanced and moving" }
-    ]
-  };
+    const songResult = await geminiResponse.json();
+    console.log("🎵 Song Suggestions Response:", JSON.stringify(songResult, null, 2));
 
-  return fallbackSuggestions[dominantEmotion] || fallbackSuggestions.neutral;
+    if (songResult.error) {
+      throw new Error(songResult.error.message);
+    }
+
+    const songOutput = songResult?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!songOutput) {
+      throw new Error("No song suggestions returned by AI");
+    }
+
+    let songSuggestions;
+    try {
+      songSuggestions = JSON.parse(songOutput.trim());
+    } catch (e) {
+      console.warn("⚠️ Song output not pure JSON. Trying to extract JSON...");
+      const jsonMatch = songOutput.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        songSuggestions = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("Could not parse song suggestions JSON");
+      }
+    }
+
+    if (songSuggestions.length > 7) {
+      songSuggestions = songSuggestions.slice(0, 7);
+    }
+
+    return songSuggestions;
+
+  } catch (error) {
+    console.error("❌ AI song suggestions error:", error);
+    // Use fallback if AI fails
+    return getFallbackSongSuggestions();
+  }
 }
+// function getFallbackSongSuggestions(dominantEmotion){
+//       const fallbackSuggestions = {
+//     happy: [
+//       { title: "Happy", artist: "Pharrell Williams", genre: "Pop", reason: "Uplifting and positive vibe" },
+//       { title: "Can't Stop the Feeling!", artist: "Justin Timberlake", genre: "Pop", reason: "Energetic and joyful" },
+//       { title: "Good Vibrations", artist: "The Beach Boys", genre: "Pop/Rock", reason: "Classic feel-good song" },
+//       { title: "Walking on Sunshine", artist: "Katrina & The Waves", genre: "Pop Rock", reason: "Perfect for happy moments" },
+//       { title: "Dancing Queen", artist: "ABBA", genre: "Pop/Disco", reason: "Celebratory and fun" },
+//       { title: "Uptown Funk", artist: "Mark Ronson ft. Bruno Mars", genre: "Funk/Pop", reason: "Groovy and energetic" },
+//       { title: "I Gotta Feeling", artist: "The Black Eyed Peas", genre: "Pop/Dance", reason: "Party anthem for good times" }
+//     ],
+//     sad: [
+//       { title: "Someone Like You", artist: "Adele", genre: "Pop/Soul", reason: "Emotional and cathartic" },
+//       { title: "The Sound of Silence", artist: "Simon & Garfunkel", genre: "Folk Rock", reason: "Reflective and melancholic" },
+//       { title: "All I Want", artist: "Kodaline", genre: "Indie Rock", reason: "Heartfelt and emotional" },
+//       { title: "Fix You", artist: "Coldplay", genre: "Alternative Rock", reason: "Comforting and hopeful" },
+//       { title: "Say Something", artist: "A Great Big World", genre: "Pop", reason: "Vulnerable and emotional" },
+//       { title: "Skinny Love", artist: "Bon Iver", genre: "Indie Folk", reason: "Raw and intimate" },
+//       { title: "Hurt", artist: "Johnny Cash", genre: "Country", reason: "Powerful and emotional" }
+//     ],
+//     angry: [
+//       { title: "Killing In The Name", artist: "Rage Against The Machine", genre: "Rap Metal", reason: "Intense and cathartic" },
+//       { title: "Break Stuff", artist: "Limp Bizkit", genre: "Nu Metal", reason: "Aggressive release" },
+//       { title: "Given Up", artist: "Linkin Park", genre: "Alternative Metal", reason: "Raw emotional intensity" },
+//       { title: "Bulls on Parade", artist: "Rage Against The Machine", genre: "Rap Metal", reason: "Powerful and aggressive" },
+//       { title: "Duality", artist: "Slipknot", genre: "Heavy Metal", reason: "High-energy release" },
+//       { title: "Last Resort", artist: "Papa Roach", genre: "Nu Metal", reason: "Intense emotional expression" },
+//       { title: "Bodies", artist: "Drowning Pool", genre: "Nu Metal", reason: "Powerful and energetic" }
+//     ],
+//     surprised: [
+//       { title: "Somebody That I Used To Know", artist: "Gotye", genre: "Indie Pop", reason: "Unexpected twists" },
+//       { title: "Take On Me", artist: "a-ha", genre: "Synth-pop", reason: "Surprising energy shifts" },
+//       { title: "Bohemian Rhapsody", artist: "Queen", genre: "Rock", reason: "Unpredictable structure" },
+//       { title: "Hey Ya!", artist: "Outkast", genre: "Hip Hop", reason: "Unexpectedly upbeat" },
+//       { title: "Seven Nation Army", artist: "The White Stripes", genre: "Rock", reason: "Iconic and surprising" },
+//       { title: "Feel It Still", artist: "Portugal. The Man", genre: "Alternative", reason: "Catchy and unexpected" },
+//       { title: "Pumped Up Kicks", artist: "Foster The People", genre: "Indie Pop", reason: "Contrasting mood" }
+//     ],
+//     neutral: [
+//       { title: "Weightless", artist: "Marconi Union", genre: "Ambient", reason: "Calming and balanced" },
+//       { title: "Bloom", artist: "The Paper Kites", genre: "Indie Folk", reason: "Gentle and peaceful" },
+//       { title: "Holocene", artist: "Bon Iver", genre: "Indie Folk", reason: "Reflective and calm" },
+//       { title: "To Build a Home", artist: "The Cinematic Orchestra", genre: "Ambient", reason: "Peaceful and introspective" },
+//       { title: "First Day of My Life", artist: "Bright Eyes", genre: "Indie Folk", reason: "Simple and heartfelt" },
+//       { title: "The Night We Met", artist: "Lord Huron", genre: "Indie Folk", reason: "Calm and reflective" },
+//       { title: "Rivers and Roads", artist: "The Head and the Heart", genre: "Indie Folk", reason: "Balanced and moving" }
+//     ]
+//   };
+
+//   return fallbackSuggestions[dominantEmotion] || fallbackSuggestions.neutral;
+// }

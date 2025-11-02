@@ -27,6 +27,9 @@ app.get("/", async (req, res) => {
 });
 
 console.log("server: mounting /api/v1/album routes", typeof albumRoutes);
+console.log("server: mounting /api/v1/auth routes", typeof spotifyRoute);
+console.log("server: mounting /api/v1/model routes", typeof modelRoute);
+
 app.use('/api/v1/album', albumRoutes)
 app.use('/api/v1/auth', spotifyRoute)
 app.use('/api/v1/model', modelRoute)
