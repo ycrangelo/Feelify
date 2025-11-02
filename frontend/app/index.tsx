@@ -5,7 +5,11 @@ import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import * as WebBrowser from "expo-web-browser";
 import { useUser } from "../context/userContext";
+import { PINATA_API_KEY, PINATA_SECRET_API_KEY, API_BASE_URL } from '@env';
 
+console.log("✅ Pinata Key:", PINATA_API_KEY);
+console.log("✅ Backend URL:", API_BASE_URL);
+console.log("✅ PINATA_SECRET_API_KEY URL:", PINATA_SECRET_API_KEY);
 // 👇 Spotify Configuration
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
 const SCOPES = "user-read-email user-read-private";
