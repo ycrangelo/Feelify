@@ -2,7 +2,7 @@ import prisma from "../../../prismaClient.js";
 
 export async function post(req, res) {
   try {
-    const { dominantEmotion, picUrl, userId, createdBy, albumId, albumName } = req.body;
+    const { dominantEmotion, picUrl, userId, createdBy, albumId, albumName,emotions } = req.body;
 
     if (!dominantEmotion || !picUrl || !userId || !createdBy || !albumId || !albumName) {
       return res.status(401).json({ error: "Missing required field" });
@@ -16,6 +16,7 @@ export async function post(req, res) {
         userId,
         createdBy,
         albumId,
+        emotions
       },
     });
 
