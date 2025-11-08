@@ -36,15 +36,6 @@ export default function CreatePlaylist() {
   const { user, setUser } = useUser();
 
 
-const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
-const scopes = [
-  "playlist-modify-public",
-  "playlist-modify-private", // Add this as well
-  "user-read-email",
-  "user-read-private"
-].join(" ");
-const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${SPOTIFY_CLIENT_ID}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
   // 🎥 Open Camera
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -166,7 +157,7 @@ const savePlaylistToBackend = async () => {
         },
         body: JSON.stringify({
           name: playlistName,
-          description: "Generated from your recommended songs based on emotions",
+          description: "Playlist created with Feelify based on your MoOoD",
           public: false,
         }),
       });
