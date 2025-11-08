@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Octicons } from "@expo/vector-icons";
@@ -24,6 +25,8 @@ import {
 export default function CreatePlaylist() {
   const router = useRouter();
   const [image, setImage] = useState<string | null>(null);
+  const [playlistCover, setPlaylistCover] = useState<string | null>(null);
+  const [playlistName, setPlaylistName] = useState("");
   const [loading, setLoading] = useState(false);
   const [usingJWT, setUsingJWT] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -37,14 +40,12 @@ export default function CreatePlaylist() {
       Alert.alert("Permission Required", "Camera permission is required!");
       return;
     }
-
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
@@ -56,11 +57,21 @@ export default function CreatePlaylist() {
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // 🧠 Check available credentials
+  // 🖼️ Pick Playlist Cover Image
+  const pickPlaylistCover = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setPlaylistCover(result.assets[0].uri);
+  };
+
+  // 🧠 Check credentials
   const checkCredentials = () => {
     const hasJWT = !!PINATA_JWT && PINATA_JWT.startsWith("eyJ");
     const hasAPIKeys =
@@ -68,7 +79,7 @@ export default function CreatePlaylist() {
     return { hasJWT, hasAPIKeys };
   };
 
-  // 🚀 Upload to Pinata + POST to backend
+  // 🚀 Upload to Pinata + Analyze
   const uploadToPinata = async () => {
     if (!image) {
       Alert.alert("No Image", "Please select or capture an image first!");
@@ -110,31 +121,22 @@ export default function CreatePlaylist() {
       });
 
       const data = await res.json();
-      console.log("📥 Pinata response:", data);
-
       if (data?.IpfsHash) {
         const imgUrl = `https://${GATEWAY_URL}/ipfs/${data.IpfsHash}`;
-        console.log(`✅ Uploaded with ${method}:`, imgUrl);
 
-        // ✅ Send uploaded image URL to backend
         const backendRes = await fetch(
           "https://feelifybackend.onrender.com/api/v1/model/prompt",
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ imageUrl: imgUrl }),
           }
         );
 
         const backendData = await backendRes.json();
-        console.log("🧠 Backend Response:", backendData);
 
-        // ✅ Handle array or object structure
         let emotion = null;
         let songs: any[] = [];
-
         if (Array.isArray(backendData)) {
           emotion = backendData.find((i) => i.type === "emotion_analysis")?.data || null;
           songs = backendData.find((i) => i.type === "song_suggestions")?.data || [];
@@ -147,11 +149,9 @@ export default function CreatePlaylist() {
         setSongSuggestions(songs);
         setModalVisible(true);
       } else {
-        console.error("❌ Upload failed:", data);
         Alert.alert("Upload failed", "No IPFS hash returned.");
       }
     } catch (error: any) {
-      console.error("❌ Upload failed:", error);
       Alert.alert("Upload failed", error.message || "Please try again later.");
     } finally {
       setLoading(false);
@@ -179,7 +179,6 @@ export default function CreatePlaylist() {
             <Ionicons name="camera" size={24} color="#1DB954" />
             <Text style={styles.iconText}>Camera</Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.iconButton} onPress={pickImage}>
             <Ionicons name="image" size={24} color="#1DB954" />
             <Text style={styles.iconText}>Gallery</Text>
@@ -199,7 +198,7 @@ export default function CreatePlaylist() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* 🎭 Modal for Emotion & Song Results */}
+      {/* 🎭 Enhanced Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -208,39 +207,82 @@ export default function CreatePlaylist() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-              <Text style={styles.modalTitle}>🎭 Emotion Analysis</Text>
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: 20 }}
+              indicatorStyle="white" // ✅ visible white scrollbar
+              showsVerticalScrollIndicator={true}
+            >
+              {/* 🖼️ Playlist Cover */}
+              <TouchableOpacity style={styles.coverContainer} onPress={pickPlaylistCover}>
+                {playlistCover ? (
+                  <Image source={{ uri: playlistCover }} style={styles.coverImage} />
+                ) : (
+                  <View style={styles.coverPlaceholder}>
+                    <Ionicons name="image-outline" size={50} color="#555" />
+                    <Text style={styles.coverText}>Add Playlist Cover</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
+              {/* 📝 Playlist Name */}
+              <Text style={styles.inputLabel}>Playlist Name</Text>
+              <View style={styles.inputBox}>
+                <TextInput
+                  style={styles.inputText}
+                  placeholder="Enter playlist name"
+                  placeholderTextColor="#777"
+                  value={playlistName}
+                  onChangeText={setPlaylistName}
+                />
+              </View>
+
+              {/* 🎭 Top 3 Emotions */}
+              <Text style={[styles.modalTitle, { marginTop: 15 }]}>🎭 Top 3 Emotions</Text>
               {emotionData ? (
-                Object.entries(emotionData).map(([key, value]) => (
-                  <Text key={key} style={styles.modalText}>
-                    {key}: {(Number(value) * 100).toFixed(1)}%
-                  </Text>
-                ))
+                Object.entries(emotionData)
+                  .sort((a, b) => Number(b[1]) - Number(a[1]))
+                  .slice(0, 3)
+                  .map(([key, value]) => (
+                    <Text key={key} style={styles.modalText}>
+                      {key}: {(Number(value) * 100).toFixed(1)}%
+                    </Text>
+                  ))
               ) : (
                 <Text style={styles.modalText}>No emotion data found.</Text>
               )}
 
-              <Text style={[styles.modalTitle, { marginTop: 15 }]}>🎵 Song Suggestions</Text>
-                        {songSuggestions.length > 0 ? (
-            songSuggestions.map((song, i) => {
-              const title = song?.title || song?.name || "Untitled";
-              const artist = song?.artist || song?.singer || "Unknown Artist";
-              return (
-                <Text key={i} style={styles.modalText}>
-                  {i + 1}. {title} — {artist}
-                </Text>
-              );
-            })
-          ) : (
-            <Text style={styles.modalText}>No song suggestions available.</Text>
-          )}
+              {/* 🎵 Song Suggestions */}
+              <Text style={[styles.modalTitle, { marginTop: 20 }]}>🎶 Song Suggestions</Text>
+              {songSuggestions.length > 0 ? (
+                songSuggestions.map((song, i) => {
+                  const title = song?.title || song?.name || "Untitled";
+                  const artist = song?.artist || song?.singer || "Unknown Artist";
+                  return (
+                    <Text key={i} style={styles.modalText}>
+                      {i + 1}. {title} — {artist}
+                    </Text>
+                  );
+                })
+              ) : (
+                <Text style={styles.modalText}>No song suggestions available.</Text>
+              )}
 
-
+              {/* 💾 Save + Close */}
               <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={styles.closeButton}
+                style={[
+                  styles.saveButton,
+                  (!playlistName || !playlistCover) && { opacity: 0.5 },
+                ]}
+                disabled={!playlistName || !playlistCover}
+                onPress={() => {
+                  Alert.alert("Playlist Saved", `"${playlistName}" has been created!`);
+                  setModalVisible(false);
+                }}
               >
+                <Text style={styles.saveButtonText}>Save Playlist</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>Close</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -248,7 +290,7 @@ export default function CreatePlaylist() {
         </View>
       </Modal>
 
-      {/* 🧭 Bottom Navbar */}
+      {/* 🧭 Navbar */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.push("/Home")} style={styles.navItem}>
           <Octicons name="home" size={30} color="#fff" />
@@ -266,6 +308,62 @@ export default function CreatePlaylist() {
 
 // 🎨 Styles
 const styles = StyleSheet.create({
+  coverContainer: {
+    backgroundColor: "#111",
+    borderRadius: 12,
+    overflow: "hidden",
+    height: 180,
+    marginBottom: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#1DB95433",
+  },
+  coverImage: {
+    width: "100%",
+    height: "100%",
+  },
+  coverPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coverText: {
+    color: "#666",
+    fontSize: 14,
+    marginTop: 8,
+  },
+  inputLabel: {
+    color: "#1DB954",
+    fontWeight: "600",
+    fontSize: 15,
+    marginBottom: 5,
+  },
+  inputBox: {
+    backgroundColor: "#111",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#1DB95433",
+    marginBottom: 10,
+  },
+  inputText: {
+    color: "#fff",
+    fontSize: 15,
+  },
+  saveButton: {
+    backgroundColor: "#1DB954",
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  saveButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+    textTransform: "uppercase",
+  },
   safeContainer: { flex: 1, backgroundColor: "#000" },
   scrollContainer: { flexGrow: 1, paddingTop: 60, paddingHorizontal: 24, paddingBottom: 120 },
   header: {
@@ -308,8 +406,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   createText: { color: "#fff", fontWeight: "bold", fontSize: 17, textTransform: "uppercase" },
-
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -335,7 +431,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   closeButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-
   navbar: {
     flexDirection: "row",
     justifyContent: "space-around",
