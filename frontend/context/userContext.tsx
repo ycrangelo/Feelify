@@ -4,6 +4,7 @@ import React, { createContext, useState, useContext, ReactNode } from "react";
 type User = {
   display_name: string;
   id:string;
+  token:string;
   country:string;
 } | null;
 

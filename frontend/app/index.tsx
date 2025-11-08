@@ -12,7 +12,7 @@ console.log("✅ Backend URL:", API_BASE_URL);
 console.log("✅ PINATA_SECRET_API_KEY URL:", PINATA_SECRET_API_KEY);
 // 👇 Spotify Configuration
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
-const SCOPES = "user-read-email user-read-private";
+const SCOPES = "user-read-email user-read-private playlist-modify-public playlist-modify-private"; // ADD THESE
 const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect"; // Your Expo deep link redirect
 const BACKEND_URL = "https://feelifybackend.onrender.com/"; // Your backend
 
@@ -96,7 +96,9 @@ export default function Index() {
         setUser({
           display_name: profileData.display_name,
           id: profileData.id,
+          token:data.access_token,
           country: profileData.country,
+
         });
 
         // Optional alert

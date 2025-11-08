@@ -34,6 +34,17 @@ export default function CreatePlaylist() {
   const [emotionData, setEmotionData] = useState<any>(null);
   const [songSuggestions, setSongSuggestions] = useState<any[]>([]);
   const { user, setUser } = useUser();
+
+
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
+const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
+const scopes = [
+  "playlist-modify-public",
+  "playlist-modify-private", // Add this as well
+  "user-read-email",
+  "user-read-private"
+].join(" ");
+const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${SPOTIFY_CLIENT_ID}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
   // 🎥 Open Camera
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -86,18 +97,17 @@ const savePlaylistToBackend = async () => {
   setLoading(true);
 
   try {
+    console.log("✅ Starting playlist save process");
+
     // 1️⃣ Upload playlist cover to Pinata
     const { hasJWT, hasAPIKeys } = checkCredentials();
+    console.log("Pinata credentials:", { hasJWT, hasAPIKeys });
 
     const filename = playlistCover.split("/").pop() || "cover.jpg";
     const type = filename.endsWith(".png") ? "image/png" : "image/jpeg";
 
     const formData = new FormData();
-    formData.append("file", {
-      uri: playlistCover,
-      name: filename,
-      type,
-    } as any);
+    formData.append("file", { uri: playlistCover, name: filename, type } as any);
 
     let headers: any = {};
     if (hasJWT && usingJWT) {
@@ -109,34 +119,121 @@ const savePlaylistToBackend = async () => {
       };
     }
 
+    console.log("Uploading cover image to Pinata...");
     const uploadRes = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
       headers,
       body: formData,
     });
-
     const data = await uploadRes.json();
-    if (!data.IpfsHash) throw new Error("Failed to upload cover image to Pinata");
+    console.log("Pinata response:", data);
 
+    if (!data.IpfsHash) throw new Error("Failed to upload cover image to Pinata");
     const picUrl = `https://${GATEWAY_URL}/ipfs/${data.IpfsHash}`;
+    console.log("Uploaded cover URL:", picUrl);
 
     // 2️⃣ Process emotions
+    console.log("Processing emotions:", emotionData);
     const sortedEmotions = Object.entries(emotionData || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
     const dominantEmotion = sortedEmotions[0]?.[0] || "neutral";
-    const topEmotions = Object.fromEntries(sortedEmotions.slice(0, 5)); // top 5 or 3 if you want
+    const topEmotions = Object.fromEntries(sortedEmotions.slice(0, 5));
+    console.log("Dominant emotion:", dominantEmotion, "Top emotions:", topEmotions);
 
-    // 3️⃣ Prepare payload
+    // 3️⃣ Get Spotify Access Token from backend
+    const tokenRes = user?.token;
+    console.log("Spotify token from user context:", tokenRes);
+    if (!tokenRes) throw new Error("Spotify token not found");
+
+    let playlistUrl = ""; // Initialize playlistUrl
+
+    try {
+      // 4️⃣ Get Spotify User Profile
+      console.log("Fetching Spotify profile...");
+      const profileRes = await fetch("https://api.spotify.com/v1/me", {
+        headers: { Authorization: `Bearer ${tokenRes}` },
+      });
+      const profileData = await profileRes.json();
+      console.log("Spotify profile data:", profileData);
+      const spotifyId = profileData.id;
+
+      // 5️⃣ Create Spotify Playlist
+      console.log("Creating Spotify playlist...");
+      const playlistRes = await fetch(`https://api.spotify.com/v1/users/${spotifyId}/playlists`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenRes}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: playlistName,
+          description: "Generated from your recommended songs based on emotions",
+          public: false,
+        }),
+      });
+
+      const playlistData = await playlistRes.json();
+      console.log("Spotify playlist created:", playlistData);
+
+      // Check if playlist creation failed due to scope
+      if (playlistData.error) {
+        console.warn("Spotify playlist creation failed due to scope, continuing without Spotify integration");
+        playlistUrl = `local_playlist_${Date.now()}`;
+      } else {
+        const playlistId = playlistData.id;
+        playlistUrl = playlistData.external_urls?.spotify || `https://open.spotify.com/playlist/${playlistId}`;
+
+        // 6️⃣ Add recommended songs only if playlist was created successfully
+        const trackUris: string[] = [];
+        for (const song of songSuggestions) {
+          const query = encodeURIComponent(`${song.title} ${song.artist}`);
+          console.log("Searching Spotify for song:", query);
+
+          const searchRes = await fetch(`https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`, {
+            headers: { Authorization: `Bearer ${tokenRes}` },
+          });
+          const searchData = await searchRes.json();
+          console.log("Search result:", searchData);
+
+          const uri = searchData.tracks?.items[0]?.uri;
+          if (uri) trackUris.push(uri);
+        }
+
+        if (trackUris.length > 0) {
+          console.log("Adding tracks to playlist:", trackUris);
+          await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${tokenRes}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ uris: trackUris }),
+          });
+        }
+      }
+    } catch (spotifyError: any) {
+      console.warn("Spotify integration failed, continuing with local playlist:", spotifyError.message);
+      playlistUrl = `local_playlist_${Date.now()}`;
+    }
+
+    // 7️⃣ Prepare backend payload - ensure albumId is always defined
     const albumPayload = {
       dominantEmotion,
       albumName: playlistName,
       picUrl,
-      userId: user?.id, 
-      createdBy: user?.display_name, 
-      albumId: "test test",
+      userId: user?.id,
+      createdBy: user?.display_name,
+      albumId: playlistUrl, // This was undefined, now it's always set
       emotions: topEmotions,
     };
+    console.log("Backend payload:", albumPayload);
 
-    // 4️⃣ POST to backend
+    // Validate required fields
+    if (!albumPayload.albumId || !albumPayload.albumName || !albumPayload.picUrl) {
+      throw new Error("Missing required fields: albumId, albumName, or picUrl");
+    }
+
+    // 8️⃣ POST to backend
+    console.log("Posting playlist data to backend...");
     const res = await fetch("https://feelifybackend.onrender.com/api/v1/album/post", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -145,15 +242,21 @@ const savePlaylistToBackend = async () => {
 
     if (!res.ok) {
       const err = await res.json();
+      console.log("Backend error response:", err);
       throw new Error(err.error || "Failed to save playlist");
     }
 
-    return await res.json();
+    const backendResult = await res.json();
+    console.log("Backend success response:", backendResult);
+
+    return backendResult;
+  } catch (err: any) {
+    console.error("❌ Error in savePlaylistToBackend:", err.message);
+    throw err;
   } finally {
     setLoading(false);
   }
 };
-
 
 
   // 🚀 Upload to Pinata + Analyze
@@ -345,28 +448,36 @@ const savePlaylistToBackend = async () => {
               )}
 
               {/* 💾 Save + Close */}
-              <TouchableOpacity
-                style={[
-                  styles.saveButton,
-                  (!playlistName || !playlistCover || loading) && { opacity: 0.5 },
-                ]}
-                disabled={!playlistName || !playlistCover || loading}
-                onPress={async () => {
-                  try {
-                    const result = await savePlaylistToBackend();
-                    Alert.alert("✅ Playlist Created", `"${playlistName}" has been saved successfully!`);
-                    setModalVisible(false);
-                  } catch (err: any) {
-                    Alert.alert("❌ Error", err.message || "Failed to save playlist");
-                  }
-                }}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Playlist</Text>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    (!playlistName || !playlistCover || loading) && { opacity: 0.5 },
+                  ]}
+                  disabled={!playlistName || !playlistCover || loading}
+                  onPress={async () => {
+                    try {
+                      const result = await savePlaylistToBackend();
+                      Alert.alert("✅ Playlist Created", `"${playlistName}" has been saved successfully!`);
+                      
+                      // ✅ Reset all states
+                      setPlaylistName("");
+                      setPlaylistCover(null);
+                      setImage(null);
+                      setEmotionData(null);
+                      setSongSuggestions([]);
+                      setModalVisible(false);
+                    } catch (err: any) {
+                      Alert.alert("❌ Error", err.message || "Failed to save playlist");
+                    }
+                  }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save Playlist</Text>
+                  )}
+                </TouchableOpacity>
+
 
 
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
