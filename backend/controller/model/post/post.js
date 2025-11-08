@@ -154,32 +154,97 @@ async function getAiSongSuggestions(emotionData) {
       .join(', ');
 
     const songPrompt = `
-      The following are emotion intensity scores detected from a user's face:
-      ${emotionDescription}.
-      
-      Consider ALL emotions together — not just one — and interpret this as a blended emotional state.
-      Generate a playlist that emotionally resonates with this mix, balancing between uplifting and reflective tones as appropriate.
+    EMOTION ANALYSIS:
+    ${emotionDescription}
 
-      Suggest 10 songs that are:
-      - Emotionally relevant to the overall feeling described by the scores.
-      - From popular, trending, and emotionally expressive artists worldwide.
-      - You may use (but are not limited to) the following artists as inspiration:
-        • Western Pop / R&B: SZA, Laufey, Billie Eilish, The Weeknd, Taylor Swift, Frank Ocean, Olivia Rodrigo, Joji, Coldplay, Arctic Monkeys, Ed Sheeran, Lana Del Rey, Sam Smith, Harry Styles, Post Malone, Khalid, Adele, Drake, Bruno Mars, Dua Lipa, Halsey, Imagine Dragons, Justin Bieber, Rihanna, Shawn Mendes.
-        • K-Pop: BTS, BLACKPINK, NewJeans, Stray Kids, SEVENTEEN, TWICE, EXO, IU, ENHYPEN, (G)I-DLE, ATEEZ, TXT, LE SSERAFIM.
-        • J-Pop / Anime-inspired: Kenshi Yonezu, Aimer, YOASOBI, LiSA, Official HIGE DANDism, RADWIMPS, King Gnu.
-        • OPM (Filipino Artists): Moira Dela Torre, Ben&Ben, Zack Tabudlo, SB19, December Avenue, Arthur Nery, Juan Karlos, Adie, Yeng Constantino, Sarah Geronimo, IV of Spades, Unique Salonga.
+    GUIDELINES FOR PLAYLIST GENERATION:
 
-      You are free to include other relevant and popular artists or songs that match the emotional blend, even if not listed above.
-      MUST BE ACCURATE THE SUGGETED SONGS TO THE USERS ${emotionDescription}
-      Return ONLY a JSON array of 10 objects in this exact format:
-      [
-        {
-          "title": "Song Title",
-          "artist": "Artist Name"
-        }
-      ]
+    🎯 INTERPRETATION:
+    - Analyze the COMPLETE emotional profile, not just dominant emotions
+    - Consider emotional contrasts and nuances in the blend
+    - Balance between validating current feelings and providing emotional resolution
+    - Match musical characteristics to emotional intensities
 
-      Do not include any explanation, introduction, or text outside the JSON array.
+    🎵 MUSICAL MAPPING:
+    • High Energy + Positive (happy, surprised): Upbeat pop, dance, energetic tracks
+    • High Energy + Negative (angry): Powerful anthems, rock, intense hip-hop
+    • Low Energy + Positive (content): Chill vibes, acoustic, soothing melodies  
+    • Low Energy + Negative (sad, fear): Emotional ballads, reflective, atmospheric
+    • Mixed/Neutral: Balanced blend of uplifting and contemplative
+
+    🌍 ARTIST REPERTOIRE (Expanded & Diverse):
+
+    WESTERN POP/R&B/ALTERNATIVE:
+    • Emotional Ballads: Adele, Sam Smith, Lewis Capaldi, Sia, James Bay, Birdy
+    • Upbeat Pop: Dua Lipa, Doja Cat, Lizzo, Ariana Grande, Charlie Puth, Justin Bieber
+    • Reflective/Chill: Billie Eilish, Lana Del Rey, Lorde, Halsey, Clairo, Gracie Abrams
+    • R&B/Soul: SZA, The Weeknd, Frank Ocean, Daniel Caesar, H.E.R., Jhené Aiko
+    • Indie/Alternative: Phoebe Bridgers, Bon Iver, Arctic Monkeys, Tame Impala, Florence + The Machine
+    • Hip-Hop/Rap: Drake, Kendrick Lamar, J. Cole, Post Malone, Travis Scott, Kanye West
+    • Rock/Alternative: Imagine Dragons, Coldplay, Twenty One Pilots, Linkin Park, Paramore
+
+    K-POP (Various Moods):
+    • Emotional: BTS ("Spring Day"), IU ("Through the Night"), AKMU ("How can I love the heartbreak")
+    • Energetic: BLACKPINK, TWICE, ITZY, Stray Kids, SEVENTEEN
+    • Chill/Vibey: NewJeans, HEIZE, DEAN, Crush, BOL4
+    • Powerful: ATEEZ, (G)I-DLE, MAMAMOO, SUNMI
+
+    J-POP/ANIME:
+    • Emotional: YOASOBI, Aimer, LiSA, Kenshi Yonezu, Official HIGE DANDism
+    • Uplifting: Mrs. GREEN APPLE, back number, I Don't Like Mondays.
+    • Atmospheric: RADWIMPS, Eve, Yorushika
+
+    OPM (FILIPINO MUSIC):
+    • Heartfelt: Moira Dela Torre, Ben&Ben, December Avenue, Clara Benin
+    • Contemporary: Zack Tabudlo, Arthur Nery, Adie, Juan Karlos, Al James
+    • Energetic: SB19, P-Pop Generation, BINI, BGYO
+    • OPM Classics: Eraserheads, Parokya ni Edgar, Rivermaya, Sponge Cola
+
+    INTERNATIONAL:
+    • Latin: Bad Bunny, J Balvin, Rosalía, Shakira
+    • UK/EU: Ed Sheeran, Dermot Kennedy, RAYE, Måneskin, Stromae
+    • Country: Taylor Swift, Kacey Musgraves, Luke Combs, Morgan Wallen
+
+    🎼 EMOTION-SPECIFIC RECOMMENDATIONS:
+
+    For HIGH HAPPINESS (>0.6):
+    - Celebration anthems, dance tracks, feel-good pop
+    - Artists: Lizzo, Doja Cat, Bruno Mars, TWICE, BINI
+
+    For PROMINENT SADNESS (>0.4):
+    - Emotional ballads, comforting melodies, cathartic tracks
+    - Artists: Adele, Lewis Capaldi, Moira Dela Torre, IU
+
+    For ANGER/FEAR (>0.3):
+    - Powerful releases, intense beats, empowering anthems
+    - Artists: Demi Lovato, Imagine Dragons, ATEEZ, Paramore
+
+    For MIXED/CONTEMPLATIVE:
+    - Balanced blend: 40% uplifting, 40% reflective, 20% atmospheric
+    - Artists: Taylor Swift, Coldplay, Ben&Ben, NewJeans
+
+    For NEUTRAL DOMINANT:
+    - Versatile mix: Current hits, viral tracks, mood-adaptable songs
+    - Artists: Olivia Rodrigo, The Weeknd, Zack Tabudlo, YOASOBI
+
+    📊 PLAYLIST STRUCTURE:
+    - 15 songs total
+    - Emotional journey: Start with validation → emotional exploration → resolution/hope
+    - Mix of tempos and energies appropriate to the emotional blend
+    - Include both lyrical relevance and musical mood matching
+
+    🎵 OUTPUT REQUIREMENTS:
+    Generate EXACTLY 15 songs that create a cohesive emotional journey based on the specific emotion scores provided.
+
+    Return ONLY a JSON array in this exact format:
+    [
+      {
+        "title": "Song Title",
+        "artist": "Artist Name"
+      }
+    ]
+
+    No additional text, explanations, or formatting outside the JSON array.
     `;
 
     const geminiResponse = await fetch(
