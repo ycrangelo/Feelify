@@ -21,6 +21,7 @@ import {
   PINATA_API_KEY,
   PINATA_SECRET_API_KEY,
 } from "@env";
+import { useUser } from "../context/userContext";
 
 export default function CreatePlaylist() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function CreatePlaylist() {
   const [modalVisible, setModalVisible] = useState(false);
   const [emotionData, setEmotionData] = useState<any>(null);
   const [songSuggestions, setSongSuggestions] = useState<any[]>([]);
-
+  const { user, setUser } = useUser();
   // 🎥 Open Camera
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -78,6 +79,82 @@ export default function CreatePlaylist() {
       !!PINATA_API_KEY && !!PINATA_SECRET_API_KEY && PINATA_API_KEY.length > 10;
     return { hasJWT, hasAPIKeys };
   };
+
+const savePlaylistToBackend = async () => {
+  if (!playlistCover || !playlistName) throw new Error("Playlist cover and name are required.");
+
+  setLoading(true);
+
+  try {
+    // 1️⃣ Upload playlist cover to Pinata
+    const { hasJWT, hasAPIKeys } = checkCredentials();
+
+    const filename = playlistCover.split("/").pop() || "cover.jpg";
+    const type = filename.endsWith(".png") ? "image/png" : "image/jpeg";
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: playlistCover,
+      name: filename,
+      type,
+    } as any);
+
+    let headers: any = {};
+    if (hasJWT && usingJWT) {
+      headers = { Authorization: `Bearer ${PINATA_JWT}` };
+    } else if (hasAPIKeys) {
+      headers = {
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_API_KEY,
+      };
+    }
+
+    const uploadRes = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    const data = await uploadRes.json();
+    if (!data.IpfsHash) throw new Error("Failed to upload cover image to Pinata");
+
+    const picUrl = `https://${GATEWAY_URL}/ipfs/${data.IpfsHash}`;
+
+    // 2️⃣ Process emotions
+    const sortedEmotions = Object.entries(emotionData || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
+    const dominantEmotion = sortedEmotions[0]?.[0] || "neutral";
+    const topEmotions = Object.fromEntries(sortedEmotions.slice(0, 5)); // top 5 or 3 if you want
+
+    // 3️⃣ Prepare payload
+    const albumPayload = {
+      dominantEmotion,
+      albumName: playlistName,
+      picUrl,
+      userId: user?.id, 
+      createdBy: user?.display_name, 
+      albumId: "test test",
+      emotions: topEmotions,
+    };
+
+    // 4️⃣ POST to backend
+    const res = await fetch("https://feelifybackend.onrender.com/api/v1/album/post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(albumPayload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to save playlist");
+    }
+
+    return await res.json();
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   // 🚀 Upload to Pinata + Analyze
   const uploadToPinata = async () => {
@@ -271,16 +348,26 @@ export default function CreatePlaylist() {
               <TouchableOpacity
                 style={[
                   styles.saveButton,
-                  (!playlistName || !playlistCover) && { opacity: 0.5 },
+                  (!playlistName || !playlistCover || loading) && { opacity: 0.5 },
                 ]}
-                disabled={!playlistName || !playlistCover}
-                onPress={() => {
-                  Alert.alert("Playlist Saved", `"${playlistName}" has been created!`);
-                  setModalVisible(false);
+                disabled={!playlistName || !playlistCover || loading}
+                onPress={async () => {
+                  try {
+                    const result = await savePlaylistToBackend();
+                    Alert.alert("✅ Playlist Created", `"${playlistName}" has been saved successfully!`);
+                    setModalVisible(false);
+                  } catch (err: any) {
+                    Alert.alert("❌ Error", err.message || "Failed to save playlist");
+                  }
                 }}
               >
-                <Text style={styles.saveButtonText}>Save Playlist</Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Playlist</Text>
+                )}
               </TouchableOpacity>
+
 
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>Close</Text>
