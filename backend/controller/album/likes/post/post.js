@@ -2,15 +2,15 @@ import prisma from "../../../../prismaClient.js";
 
 export async function postLike(req, res) {
   try {
-    const { albumId } = req.body;
+    const { id } = req.body;
 
-    if (!albumId) {
+    if (!id) {
       return res.status(400).json({ error: "Missing albumId" });
     }
 
     // Find the album by your custom albumId field
     const album = await prisma.album.findFirst({
-      where: { albumId: albumId },
+      where: { id: id },
     });
 
     if (!album) {
