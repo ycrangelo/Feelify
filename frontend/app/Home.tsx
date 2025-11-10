@@ -1,78 +1,181 @@
 // app/Home.tsx
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import { useUser } from "../context/userContext";
 import { router } from "expo-router";
+
 export default function Home() {
-const { user } = useUser();
+  const { user } = useUser();
+  const [albums, setAlbums] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [likedAlbums, setLikedAlbums] = useState({}); // track liked albums
+
+  // Fetch albums on load
+  useEffect(() => {
+    const fetchAlbums = async () => {
+      try {
+        const res = await fetch("https://feelifybackend.onrender.com/api/v1/album/get");
+        const data = await res.json();
+        setAlbums(data.data || []);
+      } catch (error) {
+        console.error("Error fetching albums:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAlbums();
+  }, []);
+
+// Like handler
+const handleLike = async (album) => {
+  try {
+    // Use the unique `album.id` (Mongo _id) to prevent affecting other items
+    if (likedAlbums[album.id]) return;
+
+    // Optimistically update ONLY the clicked album (compare by album.id)
+    setAlbums((prev) =>
+      prev.map((a) =>
+        a.id === album.id ? { ...a, likes: (a.likes ?? 0) + 1 } : a
+      )
+    );
+
+    // mark as liked using the unique id
+    setLikedAlbums((prev) => ({ ...prev, [album.id]: true }));
+
+    // send album.albumId to backend (keeps your current backend code unchanged)
+    const res = await fetch(
+      "https://feelifybackend.onrender.com/api/v1/album/post/like",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ albumId: album.albumId }),
+      }
+    );
+
+    if (!res.ok) {
+      // rollback optimistic update on failure
+      setAlbums((prev) =>
+        prev.map((a) =>
+          a.id === album.id ? { ...a, likes: (a.likes ?? 0) - 1 } : a
+        )
+      );
+      setLikedAlbums((prev) => {
+        const copy = { ...prev };
+        delete copy[album.id];
+        return copy;
+      });
+      throw new Error("Failed to like album");
+    }
+  } catch (error) {
+    console.error("Error liking album:", error);
+    Alert.alert("Error", "Failed to like album.");
+  }
+};
+
   return (
     <View style={styles.container}>
       {/* Header */}
-     <View style={styles.header}>
+      <View style={styles.header}>
         <Text style={styles.greeting}>
           {`${new Date().getHours() < 12
-              ? "Good Morning"
-              : new Date().getHours() < 18
-              ? "Good Afternoon"
-              : "Good Evening"
-            }, ${user ? user.display_name.split(" ")[0] : "Guest"}`}
+            ? "Good Morning"
+            : new Date().getHours() < 18
+            ? "Good Afternoon"
+            : "Good Evening"
+          }, ${user ? user.display_name.split(" ")[0] : "Guest"}`}
         </Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Public Playlists Section */}
         <Text style={styles.sectionTitle}>Public Playlists</Text>
-        <View style={styles.playlistGrid}>
-          {[
-            { id: 1, title: "Top Hits PH", creator: "Feelify" },
-            { id: 2, title: "Chill Vibes", creator: "Luna" },
-            { id: 3, title: "Daily Mix", creator: "Spotify" },
-            { id: 4, title: "Good Energy", creator: "Alex" },
-            { id: 5, title: "Midnight Drive", creator: "Mia" },
-            { id: 6, title: "Lo-Fi Focus", creator: "Jay" },
-          ].map((item) => (
-            <View key={item.id} style={styles.playlistItem}>
-              <TouchableOpacity>
-                <Image
-                  source={require("../assets/template_music_icon.jpg")}
-                  style={styles.playlistImage}
-                />
-              </TouchableOpacity>
-              <View style={styles.playlistInfo}>
-                <Text style={styles.playlistTitle}>{item.title}</Text>
-                <Text style={styles.playlistCreator}>by {item.creator}</Text>
-              </View>
-              {/* Like Button */}
-              <TouchableOpacity>
-               <Ionicons name="heart-outline" size={20} color="#1DB954" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#1DB954" style={{ marginTop: 20 }} />
+        ) : (
+          <View style={styles.playlistGrid}>
+            {albums.length > 0 ? (
+              albums.map((album) => (
+                <View key={album.id} style={styles.playlistItem}>
+                  <TouchableOpacity>
+                    <Image
+                      source={{
+                        uri:
+                          album.picUrl ||
+                          "https://via.placeholder.com/150?text=No+Image",
+                      }}
+                      style={styles.playlistImage}
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.playlistInfo}>
+                    <Text style={styles.playlistTitle}>
+                      {album.albumName || "Untitled"}
+                    </Text>
+                    <Text style={styles.playlistCreator}>
+                      by {album.createdBy || "Unknown"}
+                    </Text>
+                  </View>
+
+                  {/* Like Button with count beside it */}
+                  <View style={styles.likeContainer}>
+                    <TouchableOpacity onPress={() => handleLike(album)}>
+                      <Ionicons
+                        name={
+                          likedAlbums[album.albumId]
+                            ? "heart"
+                            : "heart-outline"
+                        }
+                        size={20}
+                        color="#1DB954"
+                      />
+                    </TouchableOpacity>
+                    <Text style={styles.likeCount}>{album.likes ?? 0}</Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={{ color: "#aaa", textAlign: "center", marginTop: 20 }}>
+                No playlists found.
+              </Text>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-          >
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem}>
           <Octicons name="home" size={32} color="#1DB954" />
-          </TouchableOpacity>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/CreatePlaylist")}
-          >
-            <Ionicons name="add-circle-outline" size={33} color="#fff" />
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/CreatePlaylist")}
+        >
+          <Ionicons name="add-circle-outline" size={33} color="#fff" />
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/Profile")}
-          >
-            <Ionicons name="person-circle" size={33} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/Profile")}
+        >
+          <Ionicons name="person-circle" size={33} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -137,6 +240,15 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 12,
   },
+  likeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  likeCount: {
+    color: "#1DB954",
+    fontSize: 14,
+  },
   bottomNav: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -150,16 +262,5 @@ const styles = StyleSheet.create({
   },
   navItem: {
     alignItems: "center",
-  },
-  navText: {
-    color: "#aaa",
-    fontSize: 12,
-    marginTop: 3,
-  },
-  navTextActive: {
-    color: "#1DB954",
-    fontSize: 12,
-    marginTop: 3,
-    fontWeight: "bold",
   },
 });
