@@ -39,31 +39,31 @@ export default function Home() {
 // Like handler
 const handleLike = async (album) => {
   try {
-    // Use the unique `album.id` (Mongo _id) to prevent affecting other items
+    // Prevent multiple likes
     if (likedAlbums[album.id]) return;
 
-    // Optimistically update ONLY the clicked album (compare by album.id)
+    // Optimistic UI update
     setAlbums((prev) =>
       prev.map((a) =>
         a.id === album.id ? { ...a, likes: (a.likes ?? 0) + 1 } : a
       )
     );
 
-    // mark as liked using the unique id
+    // Mark album as liked locally
     setLikedAlbums((prev) => ({ ...prev, [album.id]: true }));
 
-    // send album.albumId to backend (keeps your current backend code unchanged)
+    // Send the internal id to backend
     const res = await fetch(
       "https://feelifybackend.onrender.com/api/v1/album/post/like",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ albumId: album.albumId }),
+        body: JSON.stringify({ id: album.id }), // ✅ changed from albumId to id
       }
     );
 
     if (!res.ok) {
-      // rollback optimistic update on failure
+      // Rollback optimistic update if failed
       setAlbums((prev) =>
         prev.map((a) =>
           a.id === album.id ? { ...a, likes: (a.likes ?? 0) - 1 } : a
@@ -134,11 +134,7 @@ const handleLike = async (album) => {
                   <View style={styles.likeContainer}>
                     <TouchableOpacity onPress={() => handleLike(album)}>
                       <Ionicons
-                        name={
-                          likedAlbums[album.albumId]
-                            ? "heart"
-                            : "heart-outline"
-                        }
+                        name={likedAlbums[album.id] ? "heart" : "heart-outline"} // ✅ changed from album.albumId
                         size={20}
                         color="#1DB954"
                       />
