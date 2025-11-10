@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import { useUser } from "../context/userContext";
@@ -18,13 +19,17 @@ export default function Home() {
   const { user } = useUser();
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [likedAlbums, setLikedAlbums] = useState({}); // track liked albums
+  const [likedAlbums, setLikedAlbums] = useState({});
+  const [selectedAlbum, setSelectedAlbum] = useState(null); // album for modal
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Fetch albums on load
   useEffect(() => {
     const fetchAlbums = async () => {
       try {
-        const res = await fetch("https://feelifybackend.onrender.com/api/v1/album/get");
+        const res = await fetch(
+          "https://feelifybackend.onrender.com/api/v1/album/get"
+        );
         const data = await res.json();
         setAlbums(data.data || []);
       } catch (error) {
@@ -36,51 +41,85 @@ export default function Home() {
     fetchAlbums();
   }, []);
 
-// Like handler
-const handleLike = async (album) => {
-  try {
-    // Prevent multiple likes
-    if (likedAlbums[album.id]) return;
+  // Like handler
+  const handleLike = async (album) => {
+    try {
+      if (likedAlbums[album.id]) return;
 
-    // Optimistic UI update
-    setAlbums((prev) =>
-      prev.map((a) =>
-        a.id === album.id ? { ...a, likes: (a.likes ?? 0) + 1 } : a
-      )
-    );
-
-    // Mark album as liked locally
-    setLikedAlbums((prev) => ({ ...prev, [album.id]: true }));
-
-    // Send the internal id to backend
-    const res = await fetch(
-      "https://feelifybackend.onrender.com/api/v1/album/post/like",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: album.id }), // ✅ changed from albumId to id
-      }
-    );
-
-    if (!res.ok) {
-      // Rollback optimistic update if failed
       setAlbums((prev) =>
         prev.map((a) =>
-          a.id === album.id ? { ...a, likes: (a.likes ?? 0) - 1 } : a
+          a.id === album.id ? { ...a, likes: (a.likes ?? 0) + 1 } : a
         )
       );
-      setLikedAlbums((prev) => {
-        const copy = { ...prev };
-        delete copy[album.id];
-        return copy;
-      });
-      throw new Error("Failed to like album");
+
+      setLikedAlbums((prev) => ({ ...prev, [album.id]: true }));
+
+      const res = await fetch(
+        "https://feelifybackend.onrender.com/api/v1/album/post/like",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: album.id }),
+        }
+      );
+
+      if (!res.ok) {
+        setAlbums((prev) =>
+          prev.map((a) =>
+            a.id === album.id ? { ...a, likes: (a.likes ?? 0) - 1 } : a
+          )
+        );
+        setLikedAlbums((prev) => {
+          const copy = { ...prev };
+          delete copy[album.id];
+          return copy;
+        });
+        throw new Error("Failed to like album");
+      }
+    } catch (error) {
+      console.error("Error liking album:", error);
+      Alert.alert("Error", "Failed to like album.");
     }
-  } catch (error) {
-    console.error("Error liking album:", error);
-    Alert.alert("Error", "Failed to like album.");
-  }
-};
+  };
+
+  // Open modal
+  const openModal = (album) => {
+    setSelectedAlbum(album);
+    setModalVisible(true);
+  };
+
+  // Render emotions from API
+  const renderEmotions = (emotionsObj = {}) => {
+    const emotionsArray = Object.entries(emotionsObj).map(([name, value]) => ({
+      name,
+      percentage: Math.round(value * 100),
+    }));
+
+    return emotionsArray.map((e, idx) => (
+      <View key={idx} style={styles.emotionRow}>
+        <Text style={styles.emotionText}>{e.name}</Text>
+        <View style={styles.emotionBarBackground}>
+          <View style={[styles.emotionBar, { width: `${e.percentage}%` }]} />
+        </View>
+        <Text style={styles.emotionPercent}>{e.percentage}%</Text>
+      </View>
+    ));
+  };
+
+  // Render recommended songs (if you have them in your API later)
+  const renderRecommendedSongs = (songs = []) => {
+    if (!Array.isArray(songs)) return null;
+    return songs.map((s, idx) => (
+      <Text key={idx} style={styles.recoText}>
+        • {s.title} by {s.artist}
+      </Text>
+    ));
+  };
+
+  // Get Spotify URL safely (stored in albumId sometimes)
+  const getSpotifyUrl = (album) => {
+    return album?.albumId?.startsWith("https://") ? album.albumId : null;
+  };
 
   return (
     <View style={styles.container}>
@@ -100,17 +139,20 @@ const handleLike = async (album) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Public Playlists Section */}
         <Text style={styles.sectionTitle}>Public Playlists</Text>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#1DB954" style={{ marginTop: 20 }} />
+          <ActivityIndicator
+            size="large"
+            color="#1DB954"
+            style={{ marginTop: 20 }}
+          />
         ) : (
           <View style={styles.playlistGrid}>
             {albums.length > 0 ? (
               albums.map((album) => (
                 <View key={album.id} style={styles.playlistItem}>
-                  <TouchableOpacity>
+                  <TouchableOpacity onPress={() => openModal(album)}>
                     <Image
                       source={{
                         uri:
@@ -130,11 +172,10 @@ const handleLike = async (album) => {
                     </Text>
                   </View>
 
-                  {/* Like Button with count beside it */}
                   <View style={styles.likeContainer}>
                     <TouchableOpacity onPress={() => handleLike(album)}>
                       <Ionicons
-                        name={likedAlbums[album.id] ? "heart" : "heart-outline"} // ✅ changed from album.albumId
+                        name={likedAlbums[album.id] ? "heart" : "heart-outline"}
                         size={20}
                         color="#1DB954"
                       />
@@ -144,13 +185,51 @@ const handleLike = async (album) => {
                 </View>
               ))
             ) : (
-              <Text style={{ color: "#aaa", textAlign: "center", marginTop: 20 }}>
+              <Text
+                style={{ color: "#aaa", textAlign: "center", marginTop: 20 }}
+              >
                 No playlists found.
               </Text>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* Modal */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{selectedAlbum?.albumName}</Text>
+            <Text style={{ color: "#aaa", marginBottom: 10 }}>
+              by {selectedAlbum?.createdBy}
+            </Text>
+
+            <Text style={styles.sectionHeader}>Emotions</Text>
+            {renderEmotions(selectedAlbum?.emotions)}
+
+            <Text style={styles.sectionHeader}>Recommended Songs</Text>
+            {renderRecommendedSongs(selectedAlbum?.recommendedSongs)}
+
+            <TouchableOpacity
+              style={styles.spotifyButton}
+              onPress={() => {
+                const url = getSpotifyUrl(selectedAlbum);
+                if (url) router.push(url);
+                else Alert.alert("No Spotify URL available");
+              }}
+            >
+              <Text style={styles.spotifyButtonText}>Open in Spotify</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
@@ -177,86 +256,33 @@ const handleLike = async (album) => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    paddingTop: 50,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  greeting: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 20,
-    marginBottom: 15,
-  },
-  playlistGrid: {
-    flexDirection: "column",
-    gap: 15,
-    paddingHorizontal: 20,
-  },
-  playlistItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#111",
-    padding: 10,
-    borderRadius: 10,
-  },
-  playlistImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  playlistInfo: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  playlistTitle: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  playlistCreator: {
-    color: "#aaa",
-    fontSize: 12,
-  },
-  likeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  likeCount: {
-    color: "#1DB954",
-    fontSize: 14,
-  },
-  bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "#111",
-    paddingVertical: 10,
-    borderTopColor: "#1DB95433",
-    borderTopWidth: 1,
-    position: "absolute",
-    bottom: 0,
-    width: "100%",
-  },
-  navItem: {
-    alignItems: "center",
-  },
+  container: { flex: 1, backgroundColor: "#000", paddingTop: 50 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 20 },
+  greeting: { color: "#fff", fontSize: 22, fontWeight: "bold" },
+  scrollContent: { paddingBottom: 100 },
+  sectionTitle: { color: "#fff", fontSize: 18, fontWeight: "600", marginLeft: 20, marginBottom: 15 },
+  playlistGrid: { flexDirection: "column", gap: 15, paddingHorizontal: 20 },
+  playlistItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#111", padding: 10, borderRadius: 10 },
+  playlistImage: { width: 60, height: 60, borderRadius: 8, marginRight: 10 },
+  playlistInfo: { flex: 1, marginLeft: 10 },
+  playlistTitle: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  playlistCreator: { color: "#aaa", fontSize: 12 },
+  likeContainer: { flexDirection: "row", alignItems: "center", gap: 5 },
+  likeCount: { color: "#1DB954", fontSize: 14 },
+  bottomNav: { flexDirection: "row", justifyContent: "space-around", backgroundColor: "#111", paddingVertical: 10, borderTopColor: "#1DB95433", borderTopWidth: 1, position: "absolute", bottom: 0, width: "100%" },
+  navItem: { alignItems: "center" },
+  modalOverlay: { flex: 1, backgroundColor: "#000B", justifyContent: "center", alignItems: "center" },
+  modalContent: { backgroundColor: "#111", padding: 20, borderRadius: 12, width: "90%" },
+  modalTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", marginBottom: 5 },
+  sectionHeader: { color: "#fff", fontWeight: "bold", marginTop: 10, marginBottom: 5 },
+  emotionRow: { flexDirection: "row", alignItems: "center", marginVertical: 4 },
+  emotionText: { color: "#fff", width: 70 },
+  emotionBarBackground: { flex: 1, height: 10, backgroundColor: "#333", borderRadius: 5, marginHorizontal: 5 },
+  emotionBar: { height: 10, backgroundColor: "#1DB954", borderRadius: 5 },
+  emotionPercent: { color: "#fff", width: 40, textAlign: "right" },
+  recoText: { color: "#fff", marginVertical: 2 },
+  spotifyButton: { backgroundColor: "#1DB954", padding: 10, borderRadius: 8, marginTop: 15, alignItems: "center" },
+  spotifyButtonText: { color: "#000", fontWeight: "bold" },
+  closeButton: { backgroundColor: "#555", padding: 10, borderRadius: 8, marginTop: 10, alignItems: "center" },
+  closeButtonText: { color: "#fff", fontWeight: "bold" },
 });
