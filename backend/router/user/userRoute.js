@@ -12,7 +12,7 @@ router.get("/_debug/user", (req, res) => {
 });
 
 router.post("/post",post)
-router.post("/get",get)
-router.post("/getBy",getBy)
+router.get("/get",get)
+router.get("/getBy",getBy)
 
 export default router;
