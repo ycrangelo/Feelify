@@ -7,6 +7,7 @@ type User = {
   token:string;
   country:string;
   genres: string[]
+  avatar: string
 } | null;
 
 // 2. Define context value type

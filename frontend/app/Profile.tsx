@@ -120,7 +120,17 @@ export default function Profile() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <View style={styles.centerContent}>
-          <Image source={{ uri: displayUser?.avatar || "https://cdn-icons-png.flaticon.com/512/1077/1077012.png" }} style={styles.avatar} />
+        <Image
+          source={{
+            uri:
+              user?.avatar && user?.avatar !== "null"
+                ? user.avatar
+                : displayUser?.avatar && displayUser.avatar !== "null"
+                ? displayUser.avatar
+                : "https://cdn-icons-png.flaticon.com/512/1077/1077012.png"
+          }}
+          style={styles.avatar}
+        />
           <Text style={styles.name}>{displayUser?.display_name || "Spotify User"}</Text>
 
           {/* Genres */}

@@ -112,7 +112,10 @@ export default function Index() {
         spotify_id: profileData.id,
         token: data.access_token,
         country: profileData.country,
+        avatar: profileData.images?.[0]?.url || null,
       };
+     console.log("🎵 Spotify Profile Image:", userObj.avatar);
+     console.log("🟢 Spotify Granted Scopes:", profileData);
 
       // Check if user exists in backend
       const userCheckResponse = await fetch(
