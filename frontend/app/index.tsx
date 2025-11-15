@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View, TouchableOpacity, Image, ImageBackground, Linking, Alert } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, Image, ImageBackground, Linking, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
@@ -7,42 +7,51 @@ import * as WebBrowser from "expo-web-browser";
 import { useUser } from "../context/userContext";
 import { PINATA_API_KEY, PINATA_SECRET_API_KEY, API_BASE_URL } from '@env';
 
-console.log("✅ Pinata Key:", PINATA_API_KEY);
-console.log("✅ Backend URL:", API_BASE_URL);
-console.log("✅ PINATA_SECRET_API_KEY URL:", PINATA_SECRET_API_KEY);
-// 👇 Spotify Configuration
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
-const SCOPES = "user-read-email user-read-private playlist-modify-public playlist-modify-private"; // ADD THESE
-const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect"; // Your Expo deep link redirect
-const BACKEND_URL = "https://feelifybackend.onrender.com/"; // Your backend
+const SCOPES = "user-read-email user-read-private playlist-modify-public playlist-modify-private";
+const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect";
+const BACKEND_URL = "https://feelifybackend.onrender.com/";
 
-// 🔗 Build Spotify Auth URL
 const buildAuthUrl = () => {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    response_type: "code", // use 'code' to exchange via backend
+    response_type: "code",
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
     state: Math.random().toString(36).substring(7),
     show_dialog: "true",
   });
-
   return `https://accounts.spotify.com/authorize?${params.toString()}`;
 };
 
 export default function Index() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [backendLoading, setBackendLoading] = useState(true);
   const router = useRouter();
   const { user, setUser } = useUser();
+
+  // ⚡ Check if backend is online
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const response = await fetch(BACKEND_URL);
+        if (!response.ok) throw new Error("Backend not reachable");
+        setBackendLoading(false);
+      } catch (err) {
+        console.error("Backend not available:", err);
+        setBackendLoading(true);
+        Alert.alert("Backend is not yet started", "Please try again later.");
+      }
+    };
+    checkBackend();
+  }, []);
+
   // ⚡ Handle deep links from Spotify
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
-      console.log("Deep link received:", event.url);
-
       const url = new URL(event.url);
       const queryParams = new URLSearchParams(url.search);
-
       const code = queryParams.get("code");
       const error = queryParams.get("error");
 
@@ -54,13 +63,11 @@ export default function Index() {
       }
 
       if (code) {
-        console.log("Authorization code received:", code);
         await exchangeCodeForToken(code);
       }
     };
 
     const subscription = Linking.addEventListener("url", handleDeepLink);
-
     Linking.getInitialURL().then((url) => {
       if (url) handleDeepLink({ url });
     });
@@ -68,7 +75,6 @@ export default function Index() {
     return () => subscription.remove();
   }, []);
 
-  // 🔁 Exchange authorization code for access token via backend
   const exchangeCodeForToken = async (code: string) => {
     try {
       setLoading(true);
@@ -77,37 +83,22 @@ export default function Index() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
-
       const data = await response.json();
-      console.log("Backend response:", data);
 
       if (data.access_token) {
-        console.log("✅ Access token received:", data.access_token);
         setToken(data.access_token);
-
-        // 🎧 Fetch Spotify profile info
         const profileResponse = await fetch("https://api.spotify.com/v1/me", {
           headers: { Authorization: `Bearer ${data.access_token}` },
         });
-
         const profileData = await profileResponse.json();
-
-        // Store in state
         setUser({
           display_name: profileData.display_name,
           id: profileData.id,
-          token:data.access_token,
+          token: data.access_token,
           country: profileData.country,
-
         });
-
-        // Optional alert
-        // Alert.alert("Welcome!", `Logged in as ${profileData.display_name || "Spotify User"}`);
-
-        // ✅ Redirect to Home page (you can pass user info here if needed)
         router.replace("/Home");
       } else {
-        console.error("❌ Token exchange failed:", data);
         Alert.alert("Failed to exchange token", JSON.stringify(data));
       }
     } catch (err) {
@@ -117,25 +108,14 @@ export default function Index() {
       setLoading(false);
     }
   };
-    useEffect(() => {
-    if (user) {
-      console.log("🧩 User Context Updated:", user);
-    }
-  }, [user]);
 
-  // 🟢 Start Spotify login flow
   const handleLogin = async () => {
     try {
       setLoading(true);
-      console.log("Starting Spotify authentication...");
-
       const authUrl = buildAuthUrl();
       const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
 
-      console.log("WebBrowser result:", result);
-
       if (result.type === "cancel") {
-        console.log("User cancelled authentication");
         setLoading(false);
       }
     } catch (error) {
@@ -145,21 +125,25 @@ export default function Index() {
     }
   };
 
+  // 🔹 Full-screen green-themed loading screen
+  if (backendLoading) {
+    return (
+      <ImageBackground source={require("../assets/background.jpg")} style={styles.background} blurRadius={6}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1DB954" />
+          <Text style={styles.loadingText}>Starting the application...</Text>
+          <Text style={[styles.loadingText, { marginTop: 12, fontSize: 16, opacity: 0.8 }]}>
+            Thank you for waiting!
+          </Text>
+        </View>
+      </ImageBackground>
+    );
+  }
+
   return (
     <ImageBackground source={require("../assets/background.jpg")} style={styles.background} blurRadius={6}>
       <View style={styles.overlay}>
         <Text style={styles.logoText}>Feelify</Text>
-
-        {/* <Text style={styles.statusText}>
-          {token
-            ? user
-              ? `✅ Welcome, ${user.display_name}!`
-              : "✅ Connected!"
-            : loading
-            ? "🔄 Connecting to Spotify..."
-            : "Not connected"}
-        </Text> */}
-
         <Text style={styles.subtitle}>Playlists that match your emotions</Text>
 
         <TouchableOpacity
@@ -175,9 +159,7 @@ export default function Index() {
             style={[styles.loginButton, loading && styles.buttonDisabled]}
           >
             <Image source={require("../assets/spotify_icon.png")} style={styles.icon} />
-            <Text style={styles.loginText}>
-              {loading ? "Opening Spotify..." : "Continue with Spotify"}
-            </Text>
+            <Text style={styles.loginText}>{loading ? "Opening Spotify..." : "Continue with Spotify"}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -187,7 +169,6 @@ export default function Index() {
   );
 }
 
-// 🎨 Styles
 const styles = StyleSheet.create({
   background: { flex: 1 },
   overlay: {
@@ -205,12 +186,6 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(29, 185, 84, 0.8)",
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
-  },
-  statusText: {
-    color: "#fff",
-    fontSize: 16,
-    marginBottom: 10,
-    textAlign: "center",
   },
   subtitle: {
     color: "#fff",
@@ -235,4 +210,17 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   icon: { width: 26, height: 26, marginRight: 12, tintColor: "#fff" },
   loginText: { color: "#fff", fontSize: 17, fontWeight: "700", letterSpacing: 0.5 },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    color: "#1DB954",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });

@@ -25,22 +25,31 @@ export default function Home() {
   const [recommendedSongs, setRecommendedSongs] = useState({}); // album.id => songs array
   const [loadingSongs, setLoadingSongs] = useState(false);
 
-  // Fetch albums on load
+  // Fetch public playlists
+  const fetchPublicAlbums = async () => {
+    try {
+      const res = await fetch("https://feelifybackend.onrender.com/api/v1/album/get");
+      const data = await res.json();
+
+      // Preserve likes for already liked albums
+      const updatedAlbums = (data.data || []).map((album) => ({
+        ...album,
+        likes: likedAlbums[album.id] ? album.likes : album.likes ?? 0,
+      }));
+
+      setAlbums(updatedAlbums);
+    } catch (error) {
+      console.error("Error fetching albums:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch + interval for every 6 seconds
   useEffect(() => {
-    const fetchAlbums = async () => {
-      try {
-        const res = await fetch(
-          "https://feelifybackend.onrender.com/api/v1/album/get"
-        );
-        const data = await res.json();
-        setAlbums(data.data || []);
-      } catch (error) {
-        console.error("Error fetching albums:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAlbums();
+    fetchPublicAlbums();
+    const interval = setInterval(fetchPublicAlbums, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Like handler
@@ -90,25 +99,22 @@ export default function Home() {
       if (!spotifyUrl) return;
       setLoadingSongs(true);
 
-      // Extract playlist ID from URL
       const match = spotifyUrl.match(/playlist\/([a-zA-Z0-9]+)/);
       const playlistId = match ? match[1] : null;
       if (!playlistId) return;
 
-      // Spotify Web API request (public playlists only, no auth)
       const res = await fetch(
         `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
         {
-          headers: {
-                Authorization: `Bearer ${user.token}`, 
-          },
+          headers: { Authorization: `Bearer ${user.token}` },
         }
       );
       const data = await res.json();
-      const tracks = data.items?.map((item) => ({
-        title: item.track.name,
-        artist: item.track.artists.map((a) => a.name).join(", "),
-      })) || [];
+      const tracks =
+        data.items?.map((item) => ({
+          title: item.track.name,
+          artist: item.track.artists.map((a) => a.name).join(", "),
+        })) || [];
 
       setRecommendedSongs((prev) => ({ ...prev, [albumId]: tracks }));
     } catch (error) {
@@ -125,9 +131,7 @@ export default function Home() {
     setModalVisible(true);
 
     const spotifyUrl = getSpotifyUrl(album);
-    if (spotifyUrl) {
-      fetchSpotifyTracks(spotifyUrl, album.id);
-    }
+    if (spotifyUrl) fetchSpotifyTracks(spotifyUrl, album.id);
   };
 
   // Render emotions
