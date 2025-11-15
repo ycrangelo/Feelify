@@ -13,6 +13,6 @@ router.get("/_debug/user", (req, res) => {
 
 router.post("/post",post)
 router.get("/get",get)
-router.get("/getBy",getBy)
+router.get("/getBy/:spotify_id",getBy)
 
 export default router;
