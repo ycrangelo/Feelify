@@ -25,14 +25,11 @@ export default function Profile() {
         return;
       }
       try {
-        // User details
         const resUser = await fetch(`${BACKEND_URL}/api/v1/user/getBy/${user.spotify_id}`);
         if (resUser.ok) {
           const data = await resUser.json();
           setUserDetails(data.data);
         }
-
-        // User playlists
         const resAlbums = await fetch(`${BACKEND_URL}/api/v1/album/get/${user.spotify_id}`);
         if (resAlbums.ok) {
           const dataAlbums = await resAlbums.json();
@@ -67,7 +64,6 @@ export default function Profile() {
       const match = album.albumId.match(/playlist\/([a-zA-Z0-9]+)/);
       const playlistId = match ? match[1] : null;
       if (!playlistId) return;
-
       const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
@@ -120,20 +116,19 @@ export default function Profile() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <View style={styles.centerContent}>
-        <Image
-          source={{
-            uri:
-              user?.avatar && user?.avatar !== "null"
-                ? user.avatar
-                : displayUser?.avatar && displayUser.avatar !== "null"
-                ? displayUser.avatar
-                : "https://cdn-icons-png.flaticon.com/512/1077/1077012.png"
-          }}
-          style={styles.avatar}
-        />
+          <Image
+            source={{
+              uri:
+                user?.avatar && user?.avatar !== "null"
+                  ? user.avatar
+                  : displayUser?.avatar && displayUser.avatar !== "null"
+                  ? displayUser.avatar
+                  : "https://cdn-icons-png.flaticon.com/512/1077/1077012.png"
+            }}
+            style={styles.avatar}
+          />
           <Text style={styles.name}>{displayUser?.display_name || "Spotify User"}</Text>
 
-          {/* Genres */}
           <View style={styles.genresContainer}>
             {genres.slice(0, 6).map((genre: string, index: number) => (
               <View key={index} style={styles.genreCard}>
@@ -142,7 +137,6 @@ export default function Profile() {
             ))}
           </View>
 
-          {/* Playlists */}
           <Text style={styles.sectionTitle}>Your Playlists</Text>
           {loading ? (
             <Text style={{ color: "#aaa", marginTop: 20 }}>Loading...</Text>
@@ -152,12 +146,11 @@ export default function Profile() {
             <View style={styles.playlistGrid}>
               {playlists.map((album) => (
                 <TouchableOpacity key={album.id} style={styles.playlistItem} onPress={() => openModal(album)}>
-                  <Image source={{ uri: album.picUrl || "https://cdn-icons-png.flaticon.com/512/727/727245.png" }} style={styles.playlistImage} />
+                  <Image source={{ uri: album.picUrl || "https://cdn-icons-png.flaticon.com/512/1077/1077114.png" }} style={styles.playlistImage} />
                   <View style={styles.playlistInfo}>
                     <Text style={styles.playlistTitle}>{album.albumName || "Untitled"}</Text>
                     <Text style={styles.playlistCreator}>by {album.createdBy || "Unknown"}</Text>
                   </View>
-                  {/* Likes count on the right side */}
                   <View style={styles.likesContainer}>
                     <Ionicons name="heart" size={16} color="#ff1a1a" />
                     <Text style={styles.likesCount}>{album.likes || 0}</Text>
@@ -167,7 +160,6 @@ export default function Profile() {
             </View>
           )}
 
-          {/* Logout */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color="#000" />
             <Text style={styles.logoutText}>Log Out</Text>
@@ -175,14 +167,12 @@ export default function Profile() {
         </View>
       </ScrollView>
 
-      {/* Playlist Modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{selectedAlbum?.albumName}</Text>
-                {/* Likes in modal */}
                 {selectedAlbum && (
                   <View style={styles.modalLikesContainer}>
                     <Ionicons name="heart" size={20} color="#ff1a1a" />
@@ -217,7 +207,6 @@ export default function Profile() {
         </View>
       </Modal>
 
-      {/* Bottom Nav */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push("/Home")}>
           <Octicons name="home" size={32} color="#fff" />
@@ -243,41 +232,20 @@ const styles = StyleSheet.create({
   genreText: { color: "#000", fontWeight: "600", fontSize: 14 },
   sectionTitle: { color: "#fff", fontSize: 20, fontWeight: "700", marginVertical: 10 },
   playlistGrid: { flexDirection: "column", gap: 15, width: "100%" },
-  playlistItem: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    backgroundColor: "#111", 
-    padding: 10, 
-    borderRadius: 10,
-    justifyContent: "space-between" 
-  },
+  playlistItem: { flexDirection: "row", alignItems: "center", backgroundColor: "#111", padding: 10, borderRadius: 10, justifyContent: "space-between" },
   playlistImage: { width: 60, height: 60, borderRadius: 8, marginRight: 10 },
   playlistInfo: { flex: 1 },
   playlistTitle: { color: "#fff", fontSize: 16, fontWeight: "600" },
   playlistCreator: { color: "#aaa", fontSize: 12 },
-  likesContainer: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 4,
-    marginLeft: 10
-  },
+  likesContainer: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 10 },
   likesCount: { color: "#fff", fontSize: 14, fontWeight: "600" },
   logoutButton: { backgroundColor: "#ff1a1aff", paddingVertical: 14, paddingHorizontal: 50, borderRadius: 25, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginTop: "20%" },
   logoutText: { color: "#000", fontWeight: "700", fontSize: 16 },
   modalOverlay: { flex: 1, backgroundColor: "#000B", justifyContent: "center", alignItems: "center" },
   modalContent: { backgroundColor: "#111", padding: 20, borderRadius: 12, width: "90%", maxHeight: "85%" },
-  modalHeader: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center",
-    marginBottom: 5
-  },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
   modalTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", flex: 1 },
-  modalLikesContainer: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 5 
-  },
+  modalLikesContainer: { flexDirection: "row", alignItems: "center", gap: 5 },
   modalLikesCount: { color: "#fff", fontSize: 16, fontWeight: "600" },
   sectionHeader: { color: "#fff", fontWeight: "bold", marginTop: 10, marginBottom: 5 },
   emotionRow: { flexDirection: "row", alignItems: "center", marginVertical: 4 },
