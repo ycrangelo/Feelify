@@ -20,8 +20,10 @@ export default function Home() {
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likedAlbums, setLikedAlbums] = useState({});
-  const [selectedAlbum, setSelectedAlbum] = useState(null); // album for modal
+  const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [recommendedSongs, setRecommendedSongs] = useState({}); // album.id => songs array
+  const [loadingSongs, setLoadingSongs] = useState(false);
 
   // Fetch albums on load
   useEffect(() => {
@@ -82,13 +84,53 @@ export default function Home() {
     }
   };
 
+  // Fetch Spotify playlist tracks
+  const fetchSpotifyTracks = async (spotifyUrl, albumId) => {
+    try {
+      if (!spotifyUrl) return;
+      setLoadingSongs(true);
+
+      // Extract playlist ID from URL
+      const match = spotifyUrl.match(/playlist\/([a-zA-Z0-9]+)/);
+      const playlistId = match ? match[1] : null;
+      if (!playlistId) return;
+
+      // Spotify Web API request (public playlists only, no auth)
+      const res = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+        {
+          headers: {
+                Authorization: `Bearer ${user.token}`, 
+          },
+        }
+      );
+      const data = await res.json();
+      const tracks = data.items?.map((item) => ({
+        title: item.track.name,
+        artist: item.track.artists.map((a) => a.name).join(", "),
+      })) || [];
+
+      setRecommendedSongs((prev) => ({ ...prev, [albumId]: tracks }));
+    } catch (error) {
+      console.error("Error fetching Spotify tracks:", error);
+      setRecommendedSongs((prev) => ({ ...prev, [albumId]: [] }));
+    } finally {
+      setLoadingSongs(false);
+    }
+  };
+
   // Open modal
   const openModal = (album) => {
     setSelectedAlbum(album);
     setModalVisible(true);
+
+    const spotifyUrl = getSpotifyUrl(album);
+    if (spotifyUrl) {
+      fetchSpotifyTracks(spotifyUrl, album.id);
+    }
   };
 
-  // Render emotions from API
+  // Render emotions
   const renderEmotions = (emotionsObj = {}) => {
     const emotionsArray = Object.entries(emotionsObj).map(([name, value]) => ({
       name,
@@ -106,9 +148,16 @@ export default function Home() {
     ));
   };
 
-  // Render recommended songs (if you have them in your API later)
-  const renderRecommendedSongs = (songs = []) => {
-    if (!Array.isArray(songs)) return null;
+  // Render recommended songs
+  const renderRecommendedSongs = (album) => {
+    if (!album) return null;
+
+    const songs = recommendedSongs[album.id] || [];
+    if (loadingSongs && !songs.length)
+      return <Text style={{ color: "#aaa" }}>Loading...</Text>;
+    if (!songs.length)
+      return <Text style={{ color: "#aaa" }}>No songs found</Text>;
+
     return songs.map((s, idx) => (
       <Text key={idx} style={styles.recoText}>
         • {s.title} by {s.artist}
@@ -116,7 +165,6 @@ export default function Home() {
     ));
   };
 
-  // Get Spotify URL safely (stored in albumId sometimes)
   const getSpotifyUrl = (album) => {
     return album?.albumId?.startsWith("https://") ? album.albumId : null;
   };
@@ -208,7 +256,7 @@ export default function Home() {
             {renderEmotions(selectedAlbum?.emotions)}
 
             <Text style={styles.sectionHeader}>Recommended Songs</Text>
-            {renderRecommendedSongs(selectedAlbum?.recommendedSongs)}
+            {selectedAlbum && renderRecommendedSongs(selectedAlbum)}
 
             <TouchableOpacity
               style={styles.spotifyButton}
