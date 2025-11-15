@@ -207,15 +207,15 @@ async function getAiSongSuggestions(emotionData) {
 
     🎼 EMOTION-SPECIFIC RECOMMENDATIONS:
 
-    For HIGH HAPPINESS (>0.6):
+    For HIGH HAPPINESS 
     - Celebration anthems, dance tracks, feel-good pop
     - Artists: Lizzo, Doja Cat, Bruno Mars, TWICE, BINI
 
-    For PROMINENT SADNESS (>0.4):
+    For PROMINENT SADNESS 
     - Emotional ballads, comforting melodies, cathartic tracks
     - Artists: Adele, Lewis Capaldi, Moira Dela Torre, IU
 
-    For ANGER/FEAR (>0.3):
+    For ANGER/FEAR 
     - Powerful releases, intense beats, empowering anthems
     - Artists: Demi Lovato, Imagine Dragons, ATEEZ, Paramore
 
@@ -298,8 +298,8 @@ async function getAiSongSuggestions(emotionData) {
       }
     }
 
-    if (songSuggestions.length > 7) {
-      songSuggestions = songSuggestions.slice(0, 7);
+    if (songSuggestions.length > 15) {
+      songSuggestions = songSuggestions.slice(0, 15);
     }
 
     return songSuggestions;
