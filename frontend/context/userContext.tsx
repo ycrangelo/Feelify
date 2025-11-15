@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode } from "react";
 
-// 1. Define the shape of user data
+// hape of user data
 type User = {
   display_name: string;
   id:string;
@@ -10,16 +10,16 @@ type User = {
   avatar: string
 } | null;
 
-// 2. Define context value type
+//  context value type
 type UserContextType = {
   user: User;
   setUser: React.Dispatch<React.SetStateAction<User>>;
 };
 
-// 3. Create context with a proper default
+// 3 context with a proper default
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// 4. Provider component
+//  Provider component
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User>(null);
 
@@ -30,7 +30,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// 5. Custom hook for easy usage
+// Custom hook for easy usage
 export const useUser = () => {
   const context = useContext(UserContext);
   if (!context) {

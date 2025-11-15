@@ -38,9 +38,14 @@ export default function Index() {
   const [loading, setLoading] = useState(false);
   const [backendLoading, setBackendLoading] = useState(true);
   const router = useRouter();
-  const { setUser } = useUser();
+  const { user, setUser } = useUser();
 
-  // ⚡ Check if backend is online
+  useEffect(() => {
+    if (user?.spotify_id) {
+      router.replace("/Home");
+    }
+  }, [user]);
+
   useEffect(() => {
     const checkBackend = async () => {
       try {
@@ -56,7 +61,6 @@ export default function Index() {
     checkBackend();
   }, []);
 
-  // ⚡ Handle deep links from Spotify
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
       const url = new URL(event.url);
@@ -87,8 +91,6 @@ export default function Index() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       setLoading(true);
-
-      // Exchange code for Spotify token
       const response = await fetch(`${BACKEND_URL}api/v1/auth/spotify/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,7 +103,6 @@ export default function Index() {
         return;
       }
 
-      // Get user profile from Spotify
       const profileResponse = await fetch("https://api.spotify.com/v1/me", {
         headers: { Authorization: `Bearer ${data.access_token}` },
       });
@@ -114,26 +115,17 @@ export default function Index() {
         country: profileData.country,
         avatar: profileData.images?.[0]?.url || null,
       };
-     console.log("🎵 Spotify Profile Image:", userObj.avatar);
-     console.log("🟢 Spotify Granted Scopes:", profileData);
 
-      // Check if user exists in backend
       const userCheckResponse = await fetch(
         `${BACKEND_URL}api/v1/user/getBy/${profileData.id}`
       );
 
       if (userCheckResponse.status === 404) {
-        // User not found → go to Genre page
         setUser(userObj);
         router.replace("/Genres");
       } else if (userCheckResponse.ok) {
-
-
         setUser(userObj);
-
-          // Has genres → go Home
-          router.replace("/Home");
-        
+        router.replace("/Home");
       } else {
         throw new Error(`User check failed: ${userCheckResponse.status}`);
       }
@@ -158,7 +150,7 @@ export default function Index() {
     }
   };
 
-  if (backendLoading) {
+  if (backendLoading || loading) {
     return (
       <ImageBackground
         source={require("../assets/background.jpg")}
@@ -167,10 +159,10 @@ export default function Index() {
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1DB954" />
-          <Text style={styles.loadingText}>Starting the application...</Text>
-          <Text
-            style={[styles.loadingText, { marginTop: 12, fontSize: 16, opacity: 0.8 }]}
-          >
+          <Text style={styles.loadingText}>
+            {loading ? "Logging in..." : "Starting the application..."}
+          </Text>
+          <Text style={[styles.loadingText, { marginTop: 12, fontSize: 16, opacity: 0.8 }]}>
             Thank you for waiting!
           </Text>
         </View>

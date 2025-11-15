@@ -36,7 +36,7 @@ export default function CreatePlaylist() {
   const { user, setUser } = useUser();
 
 
-  // 🎥 Open Camera
+  // Open Camera
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.status !== "granted") {
@@ -52,7 +52,7 @@ export default function CreatePlaylist() {
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // 🖼️ Pick Image from Gallery
+  // Pick Image from Gallery
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -63,7 +63,7 @@ export default function CreatePlaylist() {
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // 🖼️ Pick Playlist Cover Image
+  //Pick Playlist Cover Image
   const pickPlaylistCover = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -74,7 +74,7 @@ export default function CreatePlaylist() {
     if (!result.canceled) setPlaylistCover(result.assets[0].uri);
   };
 
-  // 🧠 Check credentials
+  //Check credentials
   const checkCredentials = () => {
     const hasJWT = !!PINATA_JWT && PINATA_JWT.startsWith("eyJ");
     const hasAPIKeys =
@@ -90,7 +90,7 @@ const savePlaylistToBackend = async () => {
   try {
     console.log("✅ Starting playlist save process");
 
-    // 1️⃣ Upload playlist cover to Pinata
+    // Upload playlist cover to Pinata
     const { hasJWT, hasAPIKeys } = checkCredentials();
     console.log("Pinata credentials:", { hasJWT, hasAPIKeys });
 
@@ -123,14 +123,14 @@ const savePlaylistToBackend = async () => {
     const picUrl = `https://${GATEWAY_URL}/ipfs/${data.IpfsHash}`;
     console.log("Uploaded cover URL:", picUrl);
 
-    // 2️⃣ Process emotions
+    // Process emotions
     console.log("Processing emotions:", emotionData);
     const sortedEmotions = Object.entries(emotionData || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
     const dominantEmotion = sortedEmotions[0]?.[0] || "neutral";
     const topEmotions = Object.fromEntries(sortedEmotions.slice(0, 5));
     console.log("Dominant emotion:", dominantEmotion, "Top emotions:", topEmotions);
 
-    // 3️⃣ Get Spotify Access Token from backend
+    // Get Spotify Access Token from backend
     const tokenRes = user?.token;
     console.log("Spotify token from user context:", tokenRes);
     if (!tokenRes) throw new Error("Spotify token not found");
@@ -138,7 +138,7 @@ const savePlaylistToBackend = async () => {
     let playlistUrl = ""; // Initialize playlistUrl
 
     try {
-      // 4️⃣ Get Spotify User Profile
+      //Get Spotify User Profile
       console.log("Fetching Spotify profile...");
       const profileRes = await fetch("https://api.spotify.com/v1/me", {
         headers: { Authorization: `Bearer ${tokenRes}` },
@@ -147,7 +147,7 @@ const savePlaylistToBackend = async () => {
       console.log("Spotify profile data:", profileData);
       const spotifyId = profileData.id;
 
-      // 5️⃣ Create Spotify Playlist
+      // reate Spotify Playlist
       console.log("Creating Spotify playlist...");
       const playlistRes = await fetch(`https://api.spotify.com/v1/users/${spotifyId}/playlists`, {
         method: "POST",
@@ -173,7 +173,7 @@ const savePlaylistToBackend = async () => {
         const playlistId = playlistData.id;
         playlistUrl = playlistData.external_urls?.spotify || `https://open.spotify.com/playlist/${playlistId}`;
 
-        // 6️⃣ Add recommended songs only if playlist was created successfully
+        // Add recommended songs only if playlist was created successfully
         const trackUris: string[] = [];
         for (const song of songSuggestions) {
           const query = encodeURIComponent(`${song.title} ${song.artist}`);
@@ -206,14 +206,14 @@ const savePlaylistToBackend = async () => {
       playlistUrl = `local_playlist_${Date.now()}`;
     }
 
-    // 7️⃣ Prepare backend payload - ensure albumId is always defined
+    // Prepare backend payload - ensure albumId is always defined
     const albumPayload = {
       dominantEmotion,
       albumName: playlistName,
       picUrl,
       userId: user?.id,
       createdBy: user?.display_name,
-      albumId: playlistUrl, // This was undefined, now it's always set
+      albumId: playlistUrl,
       emotions: topEmotions,
     };
     console.log("Backend payload:", albumPayload);
@@ -223,7 +223,7 @@ const savePlaylistToBackend = async () => {
       throw new Error("Missing required fields: albumId, albumName, or picUrl");
     }
 
-    // 8️⃣ POST to backend
+    // POST to backend
     console.log("Posting playlist data to backend...");
     const res = await fetch("https://feelifybackend.onrender.com/api/v1/album/post", {
       method: "POST",
@@ -369,7 +369,7 @@ const savePlaylistToBackend = async () => {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* 🎭 Enhanced Modal */}
+     
       <Modal
         visible={modalVisible}
         transparent
@@ -380,10 +380,10 @@ const savePlaylistToBackend = async () => {
           <View style={styles.modalBox}>
             <ScrollView
               contentContainerStyle={{ paddingBottom: 20 }}
-              indicatorStyle="white" // ✅ visible white scrollbar
+              indicatorStyle="white"
               showsVerticalScrollIndicator={true}
             >
-              {/* 🖼️ Playlist Cover */}
+              {/*Playlist Cover */}
               <TouchableOpacity style={styles.coverContainer} onPress={pickPlaylistCover}>
                 {playlistCover ? (
                   <Image source={{ uri: playlistCover }} style={styles.coverImage} />
@@ -395,7 +395,7 @@ const savePlaylistToBackend = async () => {
                 )}
               </TouchableOpacity>
 
-              {/* 📝 Playlist Name */}
+              {/* Playlist Name */}
               <Text style={styles.inputLabel}>Playlist Name</Text>
               <View style={styles.inputBox}>
                 <TextInput
@@ -479,7 +479,7 @@ const savePlaylistToBackend = async () => {
         </View>
       </Modal>
 
-      {/* 🧭 Navbar */}
+    
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.push("/Home")} style={styles.navItem}>
           <Octicons name="home" size={30} color="#fff" />
@@ -495,7 +495,6 @@ const savePlaylistToBackend = async () => {
   );
 }
 
-// 🎨 Styles
 const styles = StyleSheet.create({
   coverContainer: {
     backgroundColor: "#111",
