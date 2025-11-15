@@ -200,88 +200,101 @@ export default function Home() {
             style={{ marginTop: 20 }}
           />
         ) : (
-          <View style={styles.playlistGrid}>
-            {albums.length > 0 ? (
-              albums.map((album) => (
-                <View key={album.id} style={styles.playlistItem}>
-                  <TouchableOpacity onPress={() => openModal(album)}>
-                    <Image
-                      source={{
-                        uri:
-                          album.picUrl ||
-                          "https://via.placeholder.com/150?text=No+Image",
-                      }}
-                      style={styles.playlistImage}
+        <View style={styles.playlistGrid}>
+          {albums.length > 0 ? (
+            albums.map((album) => (
+              <TouchableOpacity
+                key={album.id}
+                style={styles.playlistItem}
+                onPress={() => openModal(album)}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={{
+                    uri:
+                      album.picUrl ||
+                      "https://via.placeholder.com/150?text=No+Image",
+                  }}
+                  style={styles.playlistImage}
+                />
+
+                <View style={styles.playlistInfo}>
+                  <Text style={styles.playlistTitle}>
+                    {album.albumName || "Untitled"}
+                  </Text>
+                  <Text style={styles.playlistCreator}>
+                    by {album.createdBy || "Unknown"}
+                  </Text>
+                </View>
+
+                <View style={styles.likeContainer}>
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation(); // prevent modal opening when liking
+                      handleLike(album);
+                    }}
+                  >
+                    <Ionicons
+                      name={likedAlbums[album.id] ? "heart" : "heart-outline"}
+                      size={20}
+                      color="#1DB954"
                     />
                   </TouchableOpacity>
-
-                  <View style={styles.playlistInfo}>
-                    <Text style={styles.playlistTitle}>
-                      {album.albumName || "Untitled"}
-                    </Text>
-                    <Text style={styles.playlistCreator}>
-                      by {album.createdBy || "Unknown"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.likeContainer}>
-                    <TouchableOpacity onPress={() => handleLike(album)}>
-                      <Ionicons
-                        name={likedAlbums[album.id] ? "heart" : "heart-outline"}
-                        size={20}
-                        color="#1DB954"
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.likeCount}>{album.likes ?? 0}</Text>
-                  </View>
+                  <Text style={styles.likeCount}>{album.likes ?? 0}</Text>
                 </View>
-              ))
-            ) : (
-              <Text
-                style={{ color: "#aaa", textAlign: "center", marginTop: 20 }}
-              >
-                No playlists found.
-              </Text>
-            )}
-          </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text
+              style={{ color: "#aaa", textAlign: "center", marginTop: 20 }}
+            >
+              No playlists found.
+            </Text>
+          )}
+        </View>
         )}
       </ScrollView>
 
-      {/* Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{selectedAlbum?.albumName}</Text>
-            <Text style={{ color: "#aaa", marginBottom: 10 }}>
-              by {selectedAlbum?.createdBy}
-            </Text>
+{/* Modal */}
+<Modal visible={modalVisible} transparent animationType="slide">
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContent}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={true}
+      >
+        <Text style={styles.modalTitle}>{selectedAlbum?.albumName}</Text>
+        <Text style={{ color: "#aaa", marginBottom: 10 }}>
+          by {selectedAlbum?.createdBy}
+        </Text>
 
-            <Text style={styles.sectionHeader}>Emotions</Text>
-            {renderEmotions(selectedAlbum?.emotions)}
+        <Text style={styles.sectionHeader}>Emotions</Text>
+        {renderEmotions(selectedAlbum?.emotions)}
 
-            <Text style={styles.sectionHeader}>Recommended Songs</Text>
-            {selectedAlbum && renderRecommendedSongs(selectedAlbum)}
+        <Text style={styles.sectionHeader}>Recommended Songs</Text>
+        {selectedAlbum && renderRecommendedSongs(selectedAlbum)}
 
-            <TouchableOpacity
-              style={styles.spotifyButton}
-              onPress={() => {
-                const url = getSpotifyUrl(selectedAlbum);
-                if (url) router.push(url);
-                else Alert.alert("No Spotify URL available");
-              }}
-            >
-              <Text style={styles.spotifyButtonText}>Open in Spotify</Text>
-            </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.spotifyButton}
+          onPress={() => {
+            const url = getSpotifyUrl(selectedAlbum);
+            if (url) router.push(url);
+            else Alert.alert("No Spotify URL available");
+          }}
+        >
+          <Text style={styles.spotifyButtonText}>Open in Spotify</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => setModalVisible(false)}
+        >
+          <Text style={styles.closeButtonText}>Close</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  </View>
+</Modal>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
@@ -324,7 +337,7 @@ const styles = StyleSheet.create({
   bottomNav: { flexDirection: "row", justifyContent: "space-around", backgroundColor: "#111", paddingVertical: 10, borderTopColor: "#1DB95433", borderTopWidth: 1, position: "absolute", bottom: 0, width: "100%" },
   navItem: { alignItems: "center" },
   modalOverlay: { flex: 1, backgroundColor: "#000B", justifyContent: "center", alignItems: "center" },
-  modalContent: { backgroundColor: "#111", padding: 20, borderRadius: 12, width: "90%" },
+  modalContent: { backgroundColor: "#111", padding: 20, borderRadius: 12, width: "90%",  maxHeight: "85%" },
   modalTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", marginBottom: 5 },
   sectionHeader: { color: "#fff", fontWeight: "bold", marginTop: 10, marginBottom: 5 },
   emotionRow: { flexDirection: "row", alignItems: "center", marginVertical: 4 },
