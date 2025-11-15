@@ -35,7 +35,7 @@ console.log("server: mounting /api/v1/user routes", typeof userRoute);
 app.use('/api/v1/album', albumRoutes)
 app.use('/api/v1/auth', spotifyRoute)
 app.use('/api/v1/model', modelRoute)
-app.use('/api/v1/model', userRoute)
+app.use('/api/v1/user', userRoute)
 // 🚀 Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
