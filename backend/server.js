@@ -6,6 +6,7 @@ import fetch from "node-fetch";
 import albumRoutes from "./router/album/albumRoutes.js"
 import spotifyRoute from "./router/spoitfy/spotifyRoute.js"
 import modelRoute from "./router/model/modelRoute.js"
+import userRoute from "./router/user/userRoute.js"
 
 dotenv.config();
 const app = express();
@@ -29,10 +30,12 @@ app.get("/", async (req, res) => {
 console.log("server: mounting /api/v1/album routes", typeof albumRoutes);
 console.log("server: mounting /api/v1/auth routes", typeof spotifyRoute);
 console.log("server: mounting /api/v1/model routes", typeof modelRoute);
+console.log("server: mounting /api/v1/user routes", typeof userRoute);
 
 app.use('/api/v1/album', albumRoutes)
 app.use('/api/v1/auth', spotifyRoute)
 app.use('/api/v1/model', modelRoute)
+app.use('/api/v1/model', userRoute)
 // 🚀 Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
