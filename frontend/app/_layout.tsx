@@ -15,6 +15,7 @@ export default function RootLayout() {
             <Stack.Screen name="home" />
             <Stack.Screen name="profile" />
             <Stack.Screen name="createPlaylist" />
+            <Stack.Screen name="genres" />
           </Stack>
        </UserProvider>
   );

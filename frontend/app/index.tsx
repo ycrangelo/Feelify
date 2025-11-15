@@ -1,46 +1,26 @@
 import { StatusBar } from "expo-status-bar";
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  Image, 
-  ImageBackground, 
-  Linking, 
-  Alert, 
-  ActivityIndicator, 
-  ScrollView 
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  ImageBackground,
+  Linking,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import * as WebBrowser from "expo-web-browser";
 import { useUser } from "../context/userContext";
-import { PINATA_API_KEY, PINATA_SECRET_API_KEY, API_BASE_URL } from '@env';
 
 const CLIENT_ID = "d5fe7c7c327b47639da33e95a1c464e1";
-const SCOPES = "user-read-email user-read-private playlist-modify-public playlist-modify-private";
+const SCOPES =
+  "user-read-email user-read-private playlist-modify-public playlist-modify-private";
 const REDIRECT_URI = "exp://192.168.18.49:8081/--/redirect";
 const BACKEND_URL = "https://feelifybackend.onrender.com/";
-
-const GENRES = [
-  "Pop",
-  "Rock",
-  "Hip-Hop",
-  "Jazz",
-  "Classical",
-  "EDM",
-  "R&B",
-  "Country",
-  "K-Pop",
-  "OPM",
-  "J-Pop",
-  "Running",
-  "Gym",
-  "Chill",
-  "Party",
-  "Lo-fi",
-];
 
 const buildAuthUrl = () => {
   const params = new URLSearchParams({
@@ -55,13 +35,10 @@ const buildAuthUrl = () => {
 };
 
 export default function Index() {
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [backendLoading, setBackendLoading] = useState(true);
-  const [genreSelection, setGenreSelection] = useState<string[]>([]);
-  const [showGenreSelection, setShowGenreSelection] = useState(false);
   const router = useRouter();
-  const { user, setUser } = useUser();
+  const { setUser } = useUser();
 
   // ⚡ Check if backend is online
   useEffect(() => {
@@ -110,6 +87,8 @@ export default function Index() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       setLoading(true);
+
+      // Exchange code for Spotify token
       const response = await fetch(`${BACKEND_URL}api/v1/auth/spotify/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,76 +96,51 @@ export default function Index() {
       });
       const data = await response.json();
 
-      if (data.access_token) {
-        setToken(data.access_token);
-        
-        const profileResponse = await fetch("https://api.spotify.com/v1/me", {
-          headers: { Authorization: `Bearer ${data.access_token}` },
-        });
-        const profileData = await profileResponse.json();
-
-        const userObj = {
-          display_name: profileData.display_name,
-          spotify_id: profileData.id,
-          token: data.access_token,
-          country: profileData.country,
-          genres: [],
-        };
-
-        // ⚡ Check if user exists in database
-        try {
-          const userCheckResponse = await fetch(
-            `${BACKEND_URL}api/v1/user/getBy/${profileData.id}`
-          );
-          const userCheckData = await userCheckResponse.json();
-
-          if (userCheckData.data) {
-            // User exists - use their existing genres
-            userObj.genres = userCheckData.data.genres || [];
-            setUser(userObj);
-            
-            if (userObj.genres.length === 0) {
-              // User exists but has no genres - show genre selection
-              setShowGenreSelection(true);
-            } else {
-              // User exists and has genres - go to home
-              router.replace("/Home");
-            }
-          } else {
-            // User doesn't exist - create new user
-            const createUserResponse = await fetch(`${BACKEND_URL}api/v1/user/post`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                display_name: profileData.display_name,
-                spotify_id: profileData.id,
-                country: profileData.country,
-                genres: [] // Start with empty genres
-              }),
-            });
-
-            const newUserData = await createUserResponse.json();
-            
-            if (newUserData.data) {
-              userObj.genres = newUserData.data.genres || [];
-              setUser(userObj);
-              // Show genre selection for new user
-              setShowGenreSelection(true);
-            } else {
-              throw new Error("Failed to create user");
-            }
-          }
-        } catch (dbError) {
-          console.error("Database operation error:", dbError);
-          Alert.alert("Error", "Failed to check/create user in database");
-        }
-
-      } else {
+      if (!data.access_token) {
         Alert.alert("Failed to exchange token", JSON.stringify(data));
+        return;
+      }
+
+      // Get user profile from Spotify
+      const profileResponse = await fetch("https://api.spotify.com/v1/me", {
+        headers: { Authorization: `Bearer ${data.access_token}` },
+      });
+      const profileData = await profileResponse.json();
+
+      const userObj = {
+        display_name: profileData.display_name,
+        spotify_id: profileData.id,
+        token: data.access_token,
+        country: profileData.country,
+      };
+
+      // Check if user exists in backend
+      const userCheckResponse = await fetch(
+        `${BACKEND_URL}api/v1/user/getBy/${profileData.id}`
+      );
+
+      if (userCheckResponse.status === 404) {
+        // User not found → go to Genre page
+        setUser(userObj);
+        router.replace("/Genres");
+      } else if (userCheckResponse.ok) {
+
+
+        setUser(userObj);
+
+        if (userObj.genres.length === 0) {
+          // No genres → go Genre
+          router.replace("/Genres");
+        } else {
+          // Has genres → go Home
+          router.replace("/Home");
+        }
+      } else {
+        throw new Error(`User check failed: ${userCheckResponse.status}`);
       }
     } catch (err) {
       console.error("Error exchanging code for token:", err);
-      Alert.alert("Error", "Token exchange failed. Check your backend.");
+      Alert.alert("Error", "Token exchange or user check failed.");
     } finally {
       setLoading(false);
     }
@@ -197,10 +151,7 @@ export default function Index() {
       setLoading(true);
       const authUrl = buildAuthUrl();
       const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
-
-      if (result.type === "cancel") {
-        setLoading(false);
-      }
+      if (result.type === "cancel") setLoading(false);
     } catch (error) {
       console.error("Authentication error:", error);
       Alert.alert("Authentication failed", "Please try again.");
@@ -208,50 +159,19 @@ export default function Index() {
     }
   };
 
-  const toggleGenre = (genre: string) => {
-    setGenreSelection((prev) =>
-      prev.includes(genre)
-        ? prev.filter((g) => g !== genre)
-        : [...prev, genre]
-    );
-  };
-
-  const saveGenres = async () => {
-    if (!user || genreSelection.length === 0) {
-      Alert.alert("Please select at least one genre");
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${BACKEND_URL}api/v1/user/updateGenres/${user.spotify_id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ genres: genreSelection }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to save genres");
-
-      const updatedUser = { ...user, genres: genreSelection };
-      setUser(updatedUser);
-      setShowGenreSelection(false);
-      router.replace("/Home");
-    } catch (err) {
-      console.error("Error saving genres:", err);
-      Alert.alert("Failed to save genres");
-    }
-  };
-
-  // 🔹 Full-screen green-themed loading screen
   if (backendLoading) {
     return (
-      <ImageBackground source={require("../assets/background.jpg")} style={styles.background} blurRadius={6}>
+      <ImageBackground
+        source={require("../assets/background.jpg")}
+        style={styles.background}
+        blurRadius={6}
+      >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1DB954" />
           <Text style={styles.loadingText}>Starting the application...</Text>
-          <Text style={[styles.loadingText, { marginTop: 12, fontSize: 16, opacity: 0.8 }]}>
+          <Text
+            style={[styles.loadingText, { marginTop: 12, fontSize: 16, opacity: 0.8 }]}
+          >
             Thank you for waiting!
           </Text>
         </View>
@@ -259,63 +179,12 @@ export default function Index() {
     );
   }
 
-  // ⚡ Show genre selection if user needs to select genres
-  if (showGenreSelection) {
-    return (
-      <ImageBackground source={require("../assets/background.jpg")} style={styles.background} blurRadius={6}>
-        <View style={styles.genreOverlay}>
-          <Text style={styles.genreTitle}>Select Your Favorite Genres</Text>
-          <Text style={styles.genreSubtitle}>
-            Choose at least one genre to personalize your experience
-          </Text>
-          
-          <ScrollView 
-            contentContainerStyle={styles.genreContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {GENRES.map((genre) => (
-              <TouchableOpacity
-                key={genre}
-                onPress={() => toggleGenre(genre)}
-                style={[
-                  styles.genreChip,
-                  genreSelection.includes(genre) && styles.genreChipSelected,
-                ]}
-              >
-                <Text style={[
-                  styles.genreText,
-                  genreSelection.includes(genre) && styles.genreTextSelected
-                ]}>
-                  {genre}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <View style={styles.genreButtonContainer}>
-            <Text style={styles.selectedCount}>
-              {genreSelection.length} genre(s) selected
-            </Text>
-            <TouchableOpacity 
-              style={[
-                styles.saveButton, 
-                genreSelection.length === 0 && styles.saveButtonDisabled
-              ]} 
-              onPress={saveGenres}
-              disabled={genreSelection.length === 0}
-            >
-              <Text style={styles.saveButtonText}>
-                Save & Continue
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ImageBackground>
-    );
-  }
-
   return (
-    <ImageBackground source={require("../assets/background.jpg")} style={styles.background} blurRadius={6}>
+    <ImageBackground
+      source={require("../assets/background.jpg")}
+      style={styles.background}
+      blurRadius={6}
+    >
       <View style={styles.overlay}>
         <Text style={styles.logoText}>Feelify</Text>
         <Text style={styles.subtitle}>Playlists that match your emotions</Text>
@@ -332,7 +201,10 @@ export default function Index() {
             end={{ x: 1, y: 1 }}
             style={[styles.loginButton, loading && styles.buttonDisabled]}
           >
-            <Image source={require("../assets/spotify_icon.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/spotify_icon.png")}
+              style={styles.icon}
+            />
             <Text style={styles.loginText}>
               {loading ? "Opening Spotify..." : "Continue with Spotify"}
             </Text>
@@ -350,13 +222,6 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  genreOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -405,75 +270,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
-  },
-  // Genre Selection Styles
-  genreTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1DB954",
-    textAlign: "center",
-    marginBottom: 10,
-  },
-  genreSubtitle: {
-    fontSize: 16,
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 30,
-    opacity: 0.8,
-  },
-  genreContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 12,
-    paddingBottom: 20,
-  },
-  genreChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: "#333",
-    borderWidth: 1,
-    borderColor: "#555",
-  },
-  genreChipSelected: {
-    backgroundColor: "#1DB954",
-    borderColor: "#1DB954",
-  },
-  genreText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  genreTextSelected: {
-    color: "#000",
-    fontWeight: "700",
-  },
-  genreButtonContainer: {
-    marginTop: 20,
-    alignItems: "center",
-    gap: 15,
-  },
-  selectedCount: {
-    color: "#1DB954",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  saveButton: {
-    backgroundColor: "#1DB954",
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 25,
-    minWidth: 200,
-    alignItems: "center",
-  },
-  saveButtonDisabled: {
-    backgroundColor: "#555",
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: "#000",
-    fontSize: 16,
-    fontWeight: "bold",
   },
 });
