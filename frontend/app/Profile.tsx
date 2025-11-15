@@ -210,13 +210,13 @@ export default function Profile() {
       {/* Bottom Nav */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push("/Home")}>
-          <Octicons name="home" size={32} color="#1DB954" />
+          <Octicons name="home" size={32} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push("/CreatePlaylist")}>
           <Ionicons name="add-circle-outline" size={33} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person-circle" size={33} color="#fff" />
+          <Ionicons name="person-circle" size={33} color="#1DB954" />
         </TouchableOpacity>
       </View>
     </View>
