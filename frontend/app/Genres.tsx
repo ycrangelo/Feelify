@@ -22,32 +22,37 @@ export default function Genres() {
     );
   };
 
-  const createUser = async () => {
-    if (!user) return Alert.alert("Error", "User info not found");
-    if (selectedGenres.length === 0) return Alert.alert("Select at least one genre");
+const createUser = async () => {
+  if (!user) return Alert.alert("Error", "User info not found");
+  if (selectedGenres.length === 0) return Alert.alert("Select at least one genre");
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/user/post`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          display_name: user.display_name,
-          spotify_id: user.spotify_id,
-          country: user.country,
-          genres: selectedGenres,
-        }),
-      });
+  try {
+    // Send genres to backend
+    const response = await fetch(`${BACKEND_URL}/api/v1/user/post`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        display_name: user.display_name,
+        spotify_id: user.spotify_id,
+        country: user.country,
+        genres: selectedGenres,
+      }),
+    });
 
-      if (!response.ok) throw new Error("Failed to create user");
+    if (!response.ok) throw new Error("Failed to create user");
 
-      const updatedUser = { ...user, genres: selectedGenres };
-      setUser(updatedUser);
-      router.replace("/Home");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Failed to create user");
-    }
-  };
+    // Update context with genres
+    const updatedUser = { ...user, genres: selectedGenres };
+    setUser(updatedUser);
+
+    // Go to Home
+    router.replace("/Home");
+  } catch (err) {
+    console.error(err);
+    Alert.alert("Failed to create user");
+  }
+};
+
 
   return (
     <ImageBackground

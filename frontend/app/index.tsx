@@ -128,13 +128,9 @@ export default function Index() {
 
         setUser(userObj);
 
-        if (userObj.genres.length === 0) {
-          // No genres → go Genre
-          router.replace("/Genres");
-        } else {
           // Has genres → go Home
           router.replace("/Home");
-        }
+        
       } else {
         throw new Error(`User check failed: ${userCheckResponse.status}`);
       }

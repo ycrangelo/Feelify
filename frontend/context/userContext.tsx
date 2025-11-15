@@ -6,6 +6,7 @@ type User = {
   id:string;
   token:string;
   country:string;
+  genres: string[]
 } | null;
 
 // 2. Define context value type
