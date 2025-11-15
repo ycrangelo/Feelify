@@ -147,6 +147,11 @@ export default function Profile() {
                     <Text style={styles.playlistTitle}>{album.albumName || "Untitled"}</Text>
                     <Text style={styles.playlistCreator}>by {album.createdBy || "Unknown"}</Text>
                   </View>
+                  {/* Likes count on the right side */}
+                  <View style={styles.likesContainer}>
+                    <Ionicons name="heart" size={16} color="#ff1a1a" />
+                    <Text style={styles.likesCount}>{album.likes || 0}</Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -165,7 +170,16 @@ export default function Profile() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-              <Text style={styles.modalTitle}>{selectedAlbum?.albumName}</Text>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{selectedAlbum?.albumName}</Text>
+                {/* Likes in modal */}
+                {selectedAlbum && (
+                  <View style={styles.modalLikesContainer}>
+                    <Ionicons name="heart" size={20} color="#ff1a1a" />
+                    <Text style={styles.modalLikesCount}>{selectedAlbum.likes || 0}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={{ color: "#aaa", marginBottom: 10 }}>by {selectedAlbum?.createdBy}</Text>
 
               <Text style={styles.sectionHeader}>Emotions</Text>
@@ -219,16 +233,42 @@ const styles = StyleSheet.create({
   genreText: { color: "#000", fontWeight: "600", fontSize: 14 },
   sectionTitle: { color: "#fff", fontSize: 20, fontWeight: "700", marginVertical: 10 },
   playlistGrid: { flexDirection: "column", gap: 15, width: "100%" },
-  playlistItem: { flexDirection: "row", alignItems: "center", backgroundColor: "#111", padding: 10, borderRadius: 10 },
+  playlistItem: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: "#111", 
+    padding: 10, 
+    borderRadius: 10,
+    justifyContent: "space-between" 
+  },
   playlistImage: { width: 60, height: 60, borderRadius: 8, marginRight: 10 },
   playlistInfo: { flex: 1 },
   playlistTitle: { color: "#fff", fontSize: 16, fontWeight: "600" },
   playlistCreator: { color: "#aaa", fontSize: 12 },
+  likesContainer: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 4,
+    marginLeft: 10
+  },
+  likesCount: { color: "#fff", fontSize: 14, fontWeight: "600" },
   logoutButton: { backgroundColor: "#ff1a1aff", paddingVertical: 14, paddingHorizontal: 50, borderRadius: 25, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginTop: "20%" },
   logoutText: { color: "#000", fontWeight: "700", fontSize: 16 },
   modalOverlay: { flex: 1, backgroundColor: "#000B", justifyContent: "center", alignItems: "center" },
   modalContent: { backgroundColor: "#111", padding: 20, borderRadius: 12, width: "90%", maxHeight: "85%" },
-  modalTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", marginBottom: 5 },
+  modalHeader: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center",
+    marginBottom: 5
+  },
+  modalTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", flex: 1 },
+  modalLikesContainer: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 5 
+  },
+  modalLikesCount: { color: "#fff", fontSize: 16, fontWeight: "600" },
   sectionHeader: { color: "#fff", fontWeight: "bold", marginTop: 10, marginBottom: 5 },
   emotionRow: { flexDirection: "row", alignItems: "center", marginVertical: 4 },
   emotionText: { color: "#fff", width: 70 },
