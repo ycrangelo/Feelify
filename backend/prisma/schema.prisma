@@ -26,6 +26,13 @@ model Album {
   likes           Int      @default(0)
   dateCreated     DateTime @default(now())
 }
+model user{
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  display_name    String
+  spotify_id      String
+  country         String
+  genres          String[]
+}
 
 model History {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
